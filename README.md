@@ -4,7 +4,7 @@
 
 Olá! Sou um desenvolvedor Full Stack focado em construir soluções eficientes e escaláveis.
 
-Minha caixa de ferramentas inclui **React.js, Vue.js** para o Front-end, e **Java, PHP (Laravel)** e **SQL** para o Back-end. Curioso por natureza, estou sempre explorando novas tecnologias e pronto para me adaptar a qualquer desafio.
+Minha caixa de ferramentas inclui **React.js, Vue.js** para o Front-end, e **Java, PHP (Laravel)** e **SQL** para o Back-end. Curioso por natureza, estou sempre explorando novas tecnologias e linguagens pronto para me adaptar a qualquer desafio.
 
 Explore meus projetos e vamos criar algo incrível juntos!
 
