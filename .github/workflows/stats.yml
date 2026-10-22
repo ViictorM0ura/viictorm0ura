@@ -120,7 +120,7 @@ jobs:
                       f'{esc(value)}</text>'
                   ])
 
-              # Sem rodapé para não sobrepor a última linha.
+              # Sem rodapé para não sobrepor as métricas.
               svg.append("</svg>")
 
               (OUT / filename).write_text(
@@ -139,7 +139,6 @@ jobs:
           user = get(f"{API}/user")
           login = user["login"]
 
-          # Estrelas recebidas nos repositórios próprios acessíveis.
           owned_repos = []
           page = 1
 
@@ -223,15 +222,11 @@ jobs:
           print("Estatísticas gerais geradas.")
 
           # --------------------------------------------------
-          # 2. Merges realmente realizados pelo usuário
+          # 2. Merges realizados por você
           # --------------------------------------------------
 
-          merged_query = (
-              f"is:pr is:merged "
-              f"merged:>={since} merged:<={until"
-          )
-
-          # Corrige a construção da consulta antes de executá-la.
+          # Busca PRs mergeados no período e consulta merged_by.login
+          # para identificar quem realizou o merge.
           merged_query = (
               f"is:pr is:merged "
               f"merged:>={since} merged:<={until}"
@@ -242,8 +237,6 @@ jobs:
           inaccessible_prs = 0
           total_found = 0
 
-          # A API de busca limita a 1.000 resultados por consulta.
-          # Verificamos cada PR para identificar merged_by.login.
           for page in range(1, 11):
               results = get(
                   f"{API}/search/issues",
@@ -274,6 +267,7 @@ jobs:
                       checked_prs += 1
 
                       merger = pr.get("merged_by") or {}
+
                       if merger.get("login", "").lower() == login.lower():
                           merged_by_you += 1
 
@@ -321,7 +315,7 @@ jobs:
           )
 
           # --------------------------------------------------
-          # 3. Linguagens dos repositórios com commits do usuário
+          # 3. Linguagens dos repositórios com commits seus
           # --------------------------------------------------
 
           repos = []
