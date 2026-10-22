@@ -1,5 +1,5 @@
 
-name: Update GitHub Stats
+name: GitHub Profile Stats
 
 on:
   schedule:
@@ -10,242 +10,296 @@ permissions:
   contents: write
 
 jobs:
-  update-stats:
+  generate-stats:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Generate stats card
-        uses: stats-organization/github-readme-stats-action@v2
-        with:
-          card: stats
-          options: username=${{ github.repository_owner }}&show_icons=true&theme=tokyonight&hide_border=true&include_all_commits=true&locale=pt-br
-          path: profile/stats.svg
-          token: ${{ secrets.GH_STATS_TOKEN }}
-          fail_on_error: true
-
-      - name: Generate languages from repositories with my commits
+      - name: Generate activity and language cards
         env:
           GH_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
-        shell: bash
+          GH_USERNAME: ${{ github.repository_owner }}
         run: |
-          set -euo pipefail
-
-          mkdir -p scripts profile
-
-          cat > /tmp/generate-languages.py <<'PY'
-          import json
+          python - <<'PY'
           import os
-          import time
-          import urllib.error
-          import urllib.parse
-          import urllib.request
-          from collections import Counter
-          from xml.sax.saxutils import escape
+          import requests
+          import html
+          from datetime import datetime, timedelta, timezone
+          from pathlib import Path
 
           TOKEN = os.environ["GH_TOKEN"]
+          USERNAME = os.environ["GH_USERNAME"]
           API = "https://api.github.com"
           HEADERS = {
               "Authorization": f"Bearer {TOKEN}",
               "Accept": "application/vnd.github+json",
-              "X-GitHub-Api-Version": "2022-11-28",
-              "User-Agent": "github-profile-stats",
+              "X-GitHub-Api-Version": "2022-11-28"
           }
 
-          def get_json(url, retries=4):
-              for attempt in range(retries):
-                  req = urllib.request.Request(url, headers=HEADERS)
-                  try:
-                      with urllib.request.urlopen(req, timeout=30) as response:
-                          return json.load(response)
-                  except urllib.error.HTTPError as error:
-                      if error.code == 403:
-                          remaining = error.headers.get("X-RateLimit-Remaining")
-                          if remaining == "0":
-                              reset = int(error.headers.get("X-RateLimit-Reset", "0"))
-                              wait = max(1, reset - int(time.time()) + 2)
-                              print(f"API rate limit reached. Waiting {wait}s.")
-                              time.sleep(min(wait, 3600))
-                              continue
-                      if error.code >= 500 and attempt < retries - 1:
-                          time.sleep(2 ** attempt)
-                          continue
-                      raise RuntimeError(
-                          f"GitHub API returned HTTP {error.code} for an API request"
-                      ) from None
-                  except urllib.error.URLError:
-                      if attempt == retries - 1:
-                          raise RuntimeError("Could not connect to GitHub API") from None
-                      time.sleep(2 ** attempt)
-              raise RuntimeError("GitHub API request failed after retries")
+          OUT = Path("profile")
+          OUT.mkdir(exist_ok=True)
 
-          user = get_json(f"{API}/user")
-          login = user["login"]
-          print(f"Authenticated account: {login}")
+          def api_get(url, params=None):
+              response = requests.get(
+                  url, headers=HEADERS, params=params, timeout=30
+              )
+              response.raise_for_status()
+              return response.json()
+
+          def graphql(query, variables):
+              response = requests.post(
+                  "https://api.github.com/graphql",
+                  headers=HEADERS,
+                  json={"query": query, "variables": variables},
+                  timeout=30
+              )
+              response.raise_for_status()
+              data = response.json()
+              if "errors" in data:
+                  raise RuntimeError(data["errors"])
+              return data["data"]
+
+          def safe_text(value):
+              return html.escape(str(value))
+
+          def card(title, subtitle, metrics, footer, filename):
+              width, height = 495, 260
+              left, top = 24, 28
+              colors = [
+                  "#58A6FF", "#3FB950", "#D2A8FF",
+                  "#F0883E", "#F778BA", "#79C0FF"
+              ]
+
+              svg = [
+                  f'<svg xmlns="http://www.w3.org/2000/svg" '
+                  f'width="{width}" height="{height}" '
+                  f'viewBox="0 0 {width} {height}">',
+                  '<rect width="100%" height="100%" rx="12" '
+                  'fill="#0D1117" stroke="#30363D"/>',
+                  f'<text x="{left}" y="{top + 4}" fill="#F0F6FC" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="17" font-weight="600">'
+                  f'{safe_text(title)}</text>',
+                  f'<text x="{left}" y="{top + 25}" fill="#8B949E" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="11">'
+                  f'{safe_text(subtitle)}</text>',
+                  f'<line x1="{left}" y1="72" x2="{width-left}" y2="72" '
+                  'stroke="#30363D"/>'
+              ]
+
+              positions = [
+                  (24, 108), (260, 108),
+                  (24, 163), (260, 163),
+                  (24, 218), (260, 218)
+              ]
+
+              for i, (label, value) in enumerate(metrics[:6]):
+                  x, y = positions[i]
+                  color = colors[i]
+                  svg.extend([
+                      f'<circle cx="{x+5}" cy="{y-5}" r="4" '
+                      f'fill="{color}"/>',
+                      f'<text x="{x+17}" y="{y}" fill="#8B949E" '
+                      'font-family="Segoe UI,Arial,sans-serif" '
+                      'font-size="11">'
+                      f'{safe_text(label)}</text>',
+                      f'<text x="{x+17}" y="{y+22}" fill="#F0F6FC" '
+                      'font-family="Segoe UI,Arial,sans-serif" '
+                      'font-size="19" font-weight="600">'
+                      f'{safe_text(value)}</text>'
+                  ])
+
+              svg.extend([
+                  f'<text x="{left}" y="246" fill="#8B949E" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="10">'
+                  f'{safe_text(footer)}</text>',
+                  '</svg>'
+              ])
+
+              (OUT / filename).write_text(
+                  "\n".join(svg), encoding="utf-8"
+              )
+
+          # --------------------------------------------------
+          # 1. Atividade dos últimos 12 meses
+          # --------------------------------------------------
+
+          now = datetime.now(timezone.utc)
+          start = now - timedelta(days=365)
+
+          query = """
+          query($login: String!, $from: DateTime!, $to: DateTime!) {
+            user(login: $login) {
+              contributionsCollection(
+                from: $from,
+                to: $to,
+                includePrivateContributions: true
+              ) {
+                totalCommitContributions
+                totalIssueContributions
+                totalPullRequestContributions
+                totalPullRequestReviewContributions
+                totalRepositoryContributions
+              }
+            }
+          }
+          """
+
+          result = graphql(query, {
+              "login": USERNAME,
+              "from": start.isoformat(),
+              "to": now.isoformat()
+          })
+
+          contributions = result["user"]["contributionsCollection"]
+
+          # Busca o total de PRs criados pelo usuário que foram
+          # efetivamente integrados (merged) nos últimos 12 meses.
+          merged_query = (
+              f"is:pr is:merged author:{USERNAME} "
+              f"merged:>={start.date().isoformat()} "
+              f"merged:<={now.date().isoformat()}"
+          )
+
+          merged_data = api_get(
+              f"{API}/search/issues",
+              {"q": merged_query, "per_page": 1}
+          )
+          merged_prs = merged_data["total_count"]
+
+          activity_metrics = [
+              ("Commits", contributions["totalCommitContributions"]),
+              ("PRs criados", contributions["totalPullRequestContributions"]),
+              ("PRs integrados", merged_prs),
+              ("Code reviews", contributions["totalPullRequestReviewContributions"]),
+              ("Issues", contributions["totalIssueContributions"]),
+              ("Repos contribuídos", contributions["totalRepositoryContributions"])
+          ]
+
+          card(
+              "GitHub Activity",
+              "Contribuicoes nos ultimos 12 meses",
+              activity_metrics,
+              f"Atualizado em {now.strftime('%d/%m/%Y')} UTC",
+              "activity.svg"
+          )
+
+          print("Card de atividade gerado.")
+
+          # --------------------------------------------------
+          # 2. Linguagens dos repositórios com commits do autor
+          # --------------------------------------------------
 
           repos = []
           page = 1
 
           while True:
-              url = (
-                  f"{API}/user/repos?"
-                  + urllib.parse.urlencode({
+              batch = api_get(
+                  f"{API}/user/repos",
+                  {
                       "visibility": "all",
                       "affiliation": "owner,collaborator,organization_member",
                       "per_page": 100,
                       "page": page,
-                      "sort": "updated",
-                  })
+                      "sort": "updated"
+                  }
               )
-              batch = get_json(url)
+
               if not batch:
                   break
+
               repos.extend(batch)
-              print(f"Repository listing page {page}: {len(batch)} entries")
-              if len(batch) < 100:
-                  break
               page += 1
 
-          print(f"Accessible repositories discovered: {len(repos)}")
+          language_totals = {}
+          repos_included = 0
+          skipped = 0
 
-          languages = Counter()
-          repos_with_commits = 0
-          inaccessible = 0
-
-          for index, repo in enumerate(repos, start=1):
-              owner = repo["owner"]["login"]
-              name = repo["name"]
-              encoded_owner = urllib.parse.quote(owner, safe="")
-              encoded_name = urllib.parse.quote(name, safe="")
-              base = f"{API}/repos/{encoded_owner}/{encoded_name}"
+          for repo in repos:
+              full_name = repo["full_name"]
 
               try:
-                  commits = get_json(
-                      f"{base}/commits?"
-                      + urllib.parse.urlencode({
-                          "author": login,
-                          "per_page": 1,
-                      })
+                  commits = api_get(
+                      f"{API}/repos/{full_name}/commits",
+                      {
+                          "author": USERNAME,
+                          "per_page": 1
+                      }
                   )
 
                   if not commits:
                       continue
 
-                  repo_languages = get_json(f"{base}/languages")
-                  if repo_languages:
-                      repos_with_commits += 1
-                      languages.update(repo_languages)
-
-              except (RuntimeError, KeyError, TypeError) as error:
-                  inaccessible += 1
-                  print(
-                      f"Skipped repository {index}; "
-                      "API access or commit lookup failed."
+                  languages = api_get(
+                      f"{API}/repos/{full_name}/languages"
                   )
 
-              if index % 25 == 0:
-                  print(f"Checked {index}/{len(repos)} repositories")
+                  if not languages:
+                      continue
 
-          total_bytes = sum(languages.values())
+                  repos_included += 1
 
-          if total_bytes == 0:
-              raise RuntimeError(
-                  "No language data found in repositories with commits "
-                  "attributed to this GitHub account."
-              )
+                  for language, byte_count in languages.items():
+                      language_totals[language] = (
+                          language_totals.get(language, 0) + byte_count
+                      )
 
-          top = languages.most_common(6)
-          print(f"Repositories with attributed commits and language data: {repos_with_commits}")
-          print(f"Repositories skipped due to API errors: {inaccessible}")
-          print("Language totals:")
-          for language, size in top:
-              print(f"  {language}: {size * 100 / total_bytes:.2f}%")
+              except requests.RequestException:
+                  skipped += 1
+                  continue
 
-          palette = {
-              "TypeScript": "#3178c6",
-              "JavaScript": "#f1e05a",
-              "HTML": "#e34c26",
-              "CSS": "#663399",
-              "Vue": "#41b883",
-              "Java": "#b07219",
-              "Python": "#3572A5",
-              "PHP": "#4F5D95",
-              "Go": "#00ADD8",
-              "C#": "#178600",
-              "C++": "#f34b7d",
-              "TeX": "#3D6117",
-              "Shell": "#89e051",
-              "Dockerfile": "#384d54",
-              "SQL": "#e38c00",
-          }
+          total_bytes = sum(language_totals.values())
 
-          width, height = 400, 220
-          x, y = 25, 65
-          bar_width = 350
-          bar_height = 10
+          if total_bytes:
+              sorted_languages = sorted(
+                  language_totals.items(),
+                  key=lambda item: item[1],
+                  reverse=True
+              )[:6]
 
-          svg = [
-              f'<svg xmlns="http://www.w3.org/2000/svg" '
-              f'width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img">',
-              '<rect width="100%" height="100%" rx="8" fill="#1a1b27"/>',
-              '<text x="25" y="35" font-family="Segoe UI,Arial,sans-serif" '
-              'font-size="18" font-weight="600" fill="#70a5fd">'
-              'Most Used Languages</text>',
-              '<text x="25" y="52" font-family="Segoe UI,Arial,sans-serif" '
-              'font-size="10" fill="#a9b1d6">'
-              'Repositories with commits attributed to your account</text>',
-          ]
+              lang_metrics = [
+                  (
+                      name,
+                      f"{value / total_bytes * 100:.1f}%"
+                  )
+                  for name, value in sorted_languages
+              ]
 
-          current_x = x
-          for language, size in top:
-              portion = size / total_bytes * bar_width
-              color = palette.get(language, "#8b8b8b")
-              svg.append(
-                  f'<rect x="{current_x:.2f}" y="{y}" '
-                  f'width="{portion:.2f}" height="{bar_height}" '
-                  f'fill="{color}"/>'
-              )
-              current_x += portion
+              # Completa o card caso existam menos de seis linguagens.
+              while len(lang_metrics) < 6:
+                  lang_metrics.append((" ", " "))
 
-          for index, (language, size) in enumerate(top):
-              column = index % 2
-              row = index // 2
-              tx = 25 + column * 190
-              ty = 105 + row * 32
-              percent = size * 100 / total_bytes
-              color = palette.get(language, "#8b8b8b")
+          else:
+              lang_metrics = [
+                  ("Sem dados", "0%"),
+                  (" ", " "), (" ", " "),
+                  (" ", " "), (" ", " "), (" ", " ")
+              ]
 
-              svg.append(
-                  f'<circle cx="{tx + 5}" cy="{ty - 4}" r="5" fill="{color}"/>'
-              )
-              svg.append(
-                  f'<text x="{tx + 16}" y="{ty}" '
-                  f'font-family="Segoe UI,Arial,sans-serif" '
-                  f'font-size="11" fill="#38bdae">'
-                  f'{escape(language)} {percent:.2f}%</text>'
-              )
-
-          svg.append(
-              '<text x="25" y="207" font-family="Segoe UI,Arial,sans-serif" '
-              'font-size="9" fill="#a9b1d6">'
-              f'{repos_with_commits} repositories included</text>'
+          card(
+              "Most Used Languages",
+              "Linguagens dos repositorios com seus commits",
+              lang_metrics,
+              f"{repos_included} repositorios analisados",
+              "top-langs.svg"
           )
-          svg.append("</svg>")
 
-          with open("profile/top-langs.svg", "w", encoding="utf-8") as file:
-              file.write("\n".join(svg))
-
-          print("Generated profile/top-langs.svg")
+          print(f"Repositórios acessíveis: {len(repos)}")
+          print(f"Repositórios com linguagens analisadas: {repos_included}")
+          print(f"Repositórios ignorados por erro de API: {skipped}")
+          print("Cards gerados com sucesso.")
           PY
 
-          python /tmp/generate-languages.py
-
-      - name: Commit updated cards
+      - name: Commit generated cards
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add profile/*.svg
-          git commit -m "Update GitHub stats" || exit 0
-          git push
+          git add profile/activity.svg profile/top-langs.svg
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update GitHub profile stats"
+            git push
+          fi
