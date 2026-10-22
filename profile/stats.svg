@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="495" height="260" viewBox="0 0 495 260">
-<rect x="0.5" y="0.5" width="494" height="259" rx="12" fill="#0D1117" stroke="#30363D"/>
-<text x="24" y="32" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="17" font-weight="600">GitHub Stats</text>
-<text x="24" y="53" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">Visao geral dos seus repositorios</text>
-<line x1="24" y1="72" x2="471" y2="72" stroke="#30363D"/>
+<rect x="0.5" y="0.5" width="494" height="259" rx="14" fill="#0D1117" stroke="#30363D"/>
+<text x="24" y="33" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="17" font-weight="600">Visao geral</text>
+<text x="24" y="54" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">Seu perfil e seus projetos</text>
+<line x1="24" y1="73" x2="471" y2="73" stroke="#30363D"/>
 <circle cx="29" cy="103" r="4" fill="#58A6FF"/>
 <text x="41" y="108" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">Estrelas recebidas</text>
 <text x="41" y="130" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600">14</text>
