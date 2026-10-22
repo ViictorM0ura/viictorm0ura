@@ -1,24 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220" viewBox="0 0 400 220" role="img">
-<rect width="100%" height="100%" rx="8" fill="#1a1b27"/>
-<text x="25" y="35" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="600" fill="#70a5fd">Most Used Languages</text>
-<text x="25" y="52" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#a9b1d6">Repositories with commits attributed to your account</text>
-<rect x="25.00" y="65" width="111.93" height="10" fill="#3178c6"/>
-<rect x="136.93" y="65" width="90.95" height="10" fill="#8b8b8b"/>
-<rect x="227.88" y="65" width="50.10" height="10" fill="#41b883"/>
-<rect x="277.98" y="65" width="45.22" height="10" fill="#f1e05a"/>
-<rect x="323.20" y="65" width="30.23" height="10" fill="#8b8b8b"/>
-<rect x="353.43" y="65" width="6.56" height="10" fill="#e34c26"/>
-<circle cx="30" cy="101" r="5" fill="#3178c6"/>
-<text x="41" y="105" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#38bdae">TypeScript 31.98%</text>
-<circle cx="220" cy="101" r="5" fill="#8b8b8b"/>
-<text x="231" y="105" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#38bdae">Ruby 25.99%</text>
-<circle cx="30" cy="133" r="5" fill="#41b883"/>
-<text x="41" y="137" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#38bdae">Vue 14.32%</text>
-<circle cx="220" cy="133" r="5" fill="#f1e05a"/>
-<text x="231" y="137" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#38bdae">JavaScript 12.92%</text>
-<circle cx="30" cy="165" r="5" fill="#8b8b8b"/>
-<text x="41" y="169" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#38bdae">MDX 8.64%</text>
-<circle cx="220" cy="165" r="5" fill="#e34c26"/>
-<text x="231" y="169" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#38bdae">HTML 1.87%</text>
-<text x="25" y="207" font-family="Segoe UI,Arial,sans-serif" font-size="9" fill="#a9b1d6">64 repositories included</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="495" height="260" viewBox="0 0 495 260">
+<rect width="100%" height="100%" rx="12" fill="#0D1117" stroke="#30363D"/>
+<text x="24" y="32" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="17" font-weight="600">Most Used Languages</text>
+<text x="24" y="53" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">Linguagens dos repositorios com seus commits</text>
+<line x1="24" y1="72" x2="471" y2="72" stroke="#30363D"/>
+<circle cx="29" cy="103" r="4" fill="#58A6FF"/>
+<text x="41" y="108" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">TypeScript</text>
+<text x="41" y="130" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600">32.0%</text>
+<circle cx="265" cy="103" r="4" fill="#3FB950"/>
+<text x="277" y="108" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">Ruby</text>
+<text x="277" y="130" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600">26.0%</text>
+<circle cx="29" cy="158" r="4" fill="#D2A8FF"/>
+<text x="41" y="163" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">Vue</text>
+<text x="41" y="185" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600">14.3%</text>
+<circle cx="265" cy="158" r="4" fill="#F0883E"/>
+<text x="277" y="163" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">JavaScript</text>
+<text x="277" y="185" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600">12.9%</text>
+<circle cx="29" cy="213" r="4" fill="#F778BA"/>
+<text x="41" y="218" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">MDX</text>
+<text x="41" y="240" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600">8.6%</text>
+<circle cx="265" cy="213" r="4" fill="#79C0FF"/>
+<text x="277" y="218" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="11">HTML</text>
+<text x="277" y="240" fill="#F0F6FC" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600">1.9%</text>
+<text x="24" y="246" fill="#8B949E" font-family="Segoe UI,Arial,sans-serif" font-size="10">{esc(footer)}</text>
 </svg>
