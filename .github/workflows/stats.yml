@@ -120,6 +120,7 @@ jobs:
                       f'{esc(value)}</text>'
                   ])
 
+              # Sem rodapé para manter o card limpo.
               svg.append("</svg>")
 
               (OUT / filename).write_text(
@@ -161,8 +162,6 @@ jobs:
               repos.extend(batch)
               page += 1
 
-          # Estatísticas gerais sem repetir as métricas do card
-          # de atividade profissional.
           owned_repos = [
               repo for repo in repos
               if repo.get("owner", {}).get("login", "").lower()
@@ -234,14 +233,12 @@ jobs:
           )
 
           # --------------------------------------------------
-          # 3. Merges feitos pelo usuário
-          #
-          # Consulta os PRs fechados diretamente em cada repo.
-          # A lista de PRs inclui merged_at e merged_by.
+          # 3. Merges realizados por você
           # --------------------------------------------------
 
           merged_by_you = 0
-          checked_prs = 0
+          merged_prs_checked = 0
+          detail_errors = 0
           inaccessible_repos = 0
           repos_checked_for_merges = 0
 
@@ -266,13 +263,12 @@ jobs:
                   except requests.HTTPError as error:
                       status = error.response.status_code
 
-                      # Repositórios sem acesso ou removidos.
                       if status in (403, 404, 409):
                           inaccessible_repos += 1
                           repo_has_error = True
                           print(
-                              f"Aviso ao consultar PRs de {full_name}: "
-                              f"HTTP {status}"
+                              f"Aviso ao consultar PRs de "
+                              f"{full_name}: HTTP {status}"
                           )
                           break
 
@@ -291,14 +287,15 @@ jobs:
                               updated_at.replace("Z", "+00:00")
                           )
 
-                          # Como a lista está ordenada por atualização,
-                          # PRs mais antigos que o início do período
-                          # não precisam ser examinados nesta página.
+                          # A listagem está ordenada pela atualização.
+                          # Se já ultrapassamos o período, encerramos
+                          # a paginação desse repositório.
                           if updated_date < start:
                               stop_paging = True
                               break
 
                       merged_at = pr.get("merged_at")
+
                       if not merged_at:
                           continue
 
@@ -309,13 +306,32 @@ jobs:
                       if not (start <= merged_date <= now):
                           continue
 
-                      checked_prs += 1
+                      number = pr["number"]
 
-                      merger = pr.get("merged_by") or {}
-                      merger_login = merger.get("login", "")
+                      try:
+                          # IMPORTANTE: consulta individual do PR.
+                          # É nesta resposta que verificamos merged_by.
+                          details = get(
+                              f"{API}/repos/{full_name}/pulls/{number}"
+                          )
 
-                      if merger_login.lower() == login.lower():
-                          merged_by_you += 1
+                          merged_prs_checked += 1
+                          merger = details.get("merged_by") or {}
+                          merger_login = merger.get("login", "")
+
+                          if merger_login.lower() == login.lower():
+                              merged_by_you += 1
+                              print(
+                                  f"Merge seu confirmado: "
+                                  f"{full_name}#{number}"
+                              )
+
+                      except requests.RequestException as error:
+                          detail_errors += 1
+                          print(
+                              f"Erro ao verificar "
+                              f"{full_name}#{number}: {error}"
+                          )
 
                   if stop_paging or len(pull_requests) < 100:
                       break
@@ -325,16 +341,19 @@ jobs:
               if not repo_has_error:
                   repos_checked_for_merges += 1
 
-          print(
-              f"Repositórios acessíveis: {len(repos)}"
-          )
+          print(f"Repositórios acessíveis: {len(repos)}")
           print(
               f"Repositórios verificados para merges: "
               f"{repos_checked_for_merges}"
           )
-          print(f"PRs mergeados verificados no período: {checked_prs}")
+          print(f"PRs mergeados detalhados: {merged_prs_checked}")
+          print(f"Falhas ao consultar detalhes: {detail_errors}")
           print(f"Repositórios sem acesso aos PRs: {inaccessible_repos}")
           print(f"Merges realizados por você: {merged_by_you}")
+
+          # --------------------------------------------------
+          # 4. Card de atividade profissional
+          # --------------------------------------------------
 
           draw_card(
               "GitHub Activity",
@@ -368,7 +387,7 @@ jobs:
           )
 
           # --------------------------------------------------
-          # 4. Linguagens dos repositórios com commits seus
+          # 5. Linguagens dos repositórios com commits seus
           # --------------------------------------------------
 
           language_totals = {}
@@ -417,7 +436,9 @@ jobs:
 
               except requests.RequestException as error:
                   skipped += 1
-                  print(f"Aviso de conexão em {full_name}: {error}")
+                  print(
+                      f"Aviso de conexão em {full_name}: {error}"
+                  )
 
           total_bytes = sum(language_totals.values())
 
