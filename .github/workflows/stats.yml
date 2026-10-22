@@ -1,5 +1,5 @@
 
-name: GitHub Profile Stats
+name: GitHub Profile Dashboard
 
 on:
   schedule:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  generate-stats:
+  generate-dashboard:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: python -m pip install requests
 
-      - name: Generate GitHub profile cards
+      - name: Generate GitHub dashboard
         env:
           GH_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
           GH_USERNAME: ${{ github.repository_owner }}
@@ -29,12 +29,12 @@ jobs:
           import os
           import html
           import requests
-          from datetime import datetime, timedelta, timezone
           from pathlib import Path
+          from datetime import datetime, timedelta, timezone
 
+          API = "https://api.github.com"
           TOKEN = os.environ["GH_TOKEN"]
           USERNAME = os.environ["GH_USERNAME"]
-          API = "https://api.github.com"
           OUT = Path("profile")
           OUT.mkdir(exist_ok=True)
 
@@ -46,182 +46,56 @@ jobs:
           })
 
           def get(url, params=None):
-              response = session.get(url, params=params, timeout=30)
+              response = session.get(
+                  url, params=params, timeout=30
+              )
               response.raise_for_status()
               return response.json()
 
           def graphql(query, variables):
               response = session.post(
                   f"{API}/graphql",
-                  json={"query": query, "variables": variables},
+                  json={
+                      "query": query,
+                      "variables": variables
+                  },
                   timeout=30
               )
               response.raise_for_status()
-              result = response.json()
+              data = response.json()
 
-              if result.get("errors"):
-                  raise RuntimeError(result["errors"])
+              if data.get("errors"):
+                  raise RuntimeError(data["errors"])
 
-              return result["data"]
+              return data["data"]
 
           def esc(value):
               return html.escape(str(value))
 
+          # Paleta visual
           BG = "#0D1117"
+          PANEL = "#161B22"
           BORDER = "#30363D"
-          TITLE = "#F0F6FC"
+          TEXT = "#F0F6FC"
           MUTED = "#8B949E"
-          ACCENTS = [
-              "#58A6FF", "#3FB950", "#D2A8FF",
-              "#F0883E", "#F778BA", "#79C0FF"
-          ]
+          BLUE = "#58A6FF"
+          GREEN = "#3FB950"
+          PURPLE = "#D2A8FF"
+          ORANGE = "#F0883E"
+          PINK = "#F778BA"
+          CYAN = "#79C0FF"
 
-          def draw_card(title, subtitle, metrics, filename):
-              width, height = 495, 260
-
-              positions = [
-                  (24, 108), (260, 108),
-                  (24, 163), (260, 163),
-                  (24, 218), (260, 218)
-              ]
-
-              svg = [
-                  f'<svg xmlns="http://www.w3.org/2000/svg" '
-                  f'width="{width}" height="{height}" '
-                  f'viewBox="0 0 {width} {height}">',
-                  f'<rect x="0.5" y="0.5" width="494" height="259" '
-                  f'rx="14" fill="{BG}" stroke="{BORDER}"/>',
-                  f'<text x="24" y="33" fill="{TITLE}" '
-                  'font-family="Segoe UI,Arial,sans-serif" '
-                  'font-size="17" font-weight="600">'
-                  f'{esc(title)}</text>',
-                  f'<text x="24" y="54" fill="{MUTED}" '
-                  'font-family="Segoe UI,Arial,sans-serif" '
-                  'font-size="11">'
-                  f'{esc(subtitle)}</text>',
-                  f'<line x1="24" y1="73" x2="471" y2="73" '
-                  f'stroke="{BORDER}"/>'
-              ]
-
-              for index, (label, value) in enumerate(metrics[:6]):
-                  x, y = positions[index]
-
-                  svg.extend([
-                      f'<circle cx="{x+5}" cy="{y-5}" r="4" '
-                      f'fill="{ACCENTS[index]}"/>',
-                      f'<text x="{x+17}" y="{y}" fill="{MUTED}" '
-                      'font-family="Segoe UI,Arial,sans-serif" '
-                      'font-size="11">'
-                      f'{esc(label)}</text>',
-                      f'<text x="{x+17}" y="{y+22}" fill="{TITLE}" '
-                      'font-family="Segoe UI,Arial,sans-serif" '
-                      'font-size="19" font-weight="600">'
-                      f'{esc(value)}</text>'
-                  ])
-
-              svg.append("</svg>")
-              (OUT / filename).write_text(
-                  "\n".join(svg), encoding="utf-8"
-              )
-
-          def draw_languages(language_totals, filename):
-              width, height = 990, 184
-              total = sum(language_totals.values())
-
-              ranked = sorted(
-                  language_totals.items(),
-                  key=lambda item: item[1],
-                  reverse=True
-              )[:6]
-
-              svg = [
-                  f'<svg xmlns="http://www.w3.org/2000/svg" '
-                  f'width="{width}" height="{height}" '
-                  f'viewBox="0 0 {width} {height}">',
-                  f'<rect x="0.5" y="0.5" width="989" height="183" '
-                  f'rx="14" fill="{BG}" stroke="{BORDER}"/>',
-                  f'<text x="26" y="32" fill="{TITLE}" '
-                  'font-family="Segoe UI,Arial,sans-serif" '
-                  'font-size="17" font-weight="600">'
-                  'Linguagens mais utilizadas</text>',
-                  f'<text x="26" y="52" fill="{MUTED}" '
-                  'font-family="Segoe UI,Arial,sans-serif" '
-                  'font-size="11">'
-                  'Distribuicao das linguagens nos repositorios com seus commits'
-                  '</text>'
-              ]
-
-              bar_x = 26
-              bar_y = 68
-              bar_w = 938
-              bar_h = 9
-
-              svg.append(
-                  f'<rect x="{bar_x}" y="{bar_y}" '
-                  f'width="{bar_w}" height="{bar_h}" '
-                  f'rx="4.5" fill="{BORDER}"/>'
-              )
-
-              current_x = bar_x
-
-              if total:
-                  for index, (language, amount) in enumerate(ranked):
-                      segment_w = bar_w * amount / total
-
-                      if index == len(ranked) - 1:
-                          segment_w = bar_x + bar_w - current_x
-
-                      svg.append(
-                          f'<rect x="{current_x:.2f}" y="{bar_y}" '
-                          f'width="{max(segment_w, 0):.2f}" '
-                          f'height="{bar_h}" fill="{ACCENTS[index]}"/>'
-                      )
-                      current_x += segment_w
-
-              # Legenda distribuída em três colunas.
-              for index, (language, amount) in enumerate(ranked):
-                  column = index % 3
-                  row = index // 3
-                  x = 28 + column * 315
-                  y = 111 + row * 37
-                  percent = amount / total * 100 if total else 0
-
-                  svg.extend([
-                      f'<circle cx="{x+5}" cy="{y-4}" r="4" '
-                      f'fill="{ACCENTS[index]}"/>',
-                      f'<text x="{x+17}" y="{y}" fill="{TITLE}" '
-                      'font-family="Segoe UI,Arial,sans-serif" '
-                      'font-size="12" font-weight="500">'
-                      f'{esc(language)}</text>',
-                      f'<text x="{x+295}" y="{y}" fill="{MUTED}" '
-                      'font-family="Segoe UI,Arial,sans-serif" '
-                      'font-size="12" text-anchor="end">'
-                      f'{percent:.1f}%</text>'
-                  ])
-
-              if not ranked:
-                  svg.append(
-                      f'<text x="28" y="112" fill="{MUTED}" '
-                      'font-family="Segoe UI,Arial,sans-serif" '
-                      'font-size="12">Nenhum dado de linguagem encontrado</text>'
-                  )
-
-              svg.append("</svg>")
-              (OUT / filename).write_text(
-                  "\n".join(svg), encoding="utf-8"
-              )
+          COLORS = [BLUE, GREEN, PURPLE, ORANGE, PINK, CYAN]
 
           now = datetime.now(timezone.utc)
           start = now - timedelta(days=365)
-          since = start.strftime("%Y-%m-%d")
-          until = now.strftime("%Y-%m-%d")
-
-          # --------------------------------------------------
-          # 1. Perfil e repositórios acessíveis
-          # --------------------------------------------------
 
           user = get(f"{API}/user")
           login = user["login"]
+
+          # --------------------------------------------------
+          # 1. Repositórios acessíveis
+          # --------------------------------------------------
 
           repos = []
           page = 1
@@ -246,7 +120,7 @@ jobs:
               repos.extend(batch)
               page += 1
 
-          owned_repos = [
+          owned = [
               repo for repo in repos
               if repo.get("owner", {}).get("login", "").lower()
               == login.lower()
@@ -254,42 +128,26 @@ jobs:
 
           stars = sum(
               repo.get("stargazers_count", 0)
-              for repo in owned_repos
+              for repo in owned
           )
 
           forks = sum(
               repo.get("forks_count", 0)
-              for repo in owned_repos
+              for repo in owned
           )
 
           public_repos = sum(
-              1 for repo in owned_repos
-              if not repo.get("private", False)
+              not repo.get("private", False)
+              for repo in owned
           )
 
           private_repos = sum(
-              1 for repo in owned_repos
-              if repo.get("private", False)
+              repo.get("private", False)
+              for repo in owned
           )
-
-          draw_card(
-              "Visao geral",
-              "Seu perfil e seus projetos",
-              [
-                  ("Estrelas recebidas", stars),
-                  ("Repositorios proprios", len(owned_repos)),
-                  ("Repos publicos", public_repos),
-                  ("Repos privados", private_repos),
-                  ("Forks recebidos", forks),
-                  ("Seguidores", user.get("followers", 0))
-              ],
-              "stats.svg"
-          )
-
-          print("Card geral gerado.")
 
           # --------------------------------------------------
-          # 2. Contribuições do último ano
+          # 2. Contribuições dos últimos 12 meses
           # --------------------------------------------------
 
           contribution_query = """
@@ -306,11 +164,14 @@ jobs:
           }
           """
 
-          data = graphql(contribution_query, {
-              "login": login,
-              "from": start.isoformat(),
-              "to": now.isoformat()
-          })
+          data = graphql(
+              contribution_query,
+              {
+                  "login": login,
+                  "from": start.isoformat(),
+                  "to": now.isoformat()
+              }
+          )
 
           contributions = (
               data["user"]["contributionsCollection"]
@@ -320,20 +181,19 @@ jobs:
           # 3. Merges realizados por você
           # --------------------------------------------------
 
-          merged_by_you = 0
+          merges_by_user = 0
           merged_prs_checked = 0
           detail_errors = 0
-          inaccessible_repos = 0
-          repos_checked_for_merges = 0
+          repos_with_pr_errors = 0
 
           for repo in repos:
               full_name = repo["full_name"]
               page = 1
-              repo_has_error = False
+              repo_error = False
 
               while True:
                   try:
-                      pull_requests = get(
+                      prs = get(
                           f"{API}/repos/{full_name}/pulls",
                           {
                               "state": "closed",
@@ -348,30 +208,30 @@ jobs:
                       status = error.response.status_code
 
                       if status in (403, 404, 409):
-                          inaccessible_repos += 1
-                          repo_has_error = True
+                          repos_with_pr_errors += 1
+                          repo_error = True
                           print(
-                              f"Aviso ao consultar PRs de "
-                              f"{full_name}: HTTP {status}"
+                              f"PRs indisponíveis em {full_name}: "
+                              f"HTTP {status}"
                           )
                           break
 
                       raise
 
-                  if not pull_requests:
+                  if not prs:
                       break
 
                   stop_paging = False
 
-                  for pr in pull_requests:
+                  for pr in prs:
                       updated_at = pr.get("updated_at")
 
                       if updated_at:
-                          updated_date = datetime.fromisoformat(
+                          updated = datetime.fromisoformat(
                               updated_at.replace("Z", "+00:00")
                           )
 
-                          if updated_date < start:
+                          if updated < start:
                               stop_paging = True
                               break
 
@@ -387,82 +247,46 @@ jobs:
                       if not (start <= merged_date <= now):
                           continue
 
-                      number = pr["number"]
-
                       try:
                           details = get(
-                              f"{API}/repos/{full_name}/pulls/{number}"
+                              f"{API}/repos/{full_name}/pulls/"
+                              f"{pr['number']}"
                           )
-                          merged_prs_checked += 1
 
+                          merged_prs_checked += 1
                           merger = details.get("merged_by") or {}
 
-                          if merger.get("login", "").lower() == login.lower():
-                              merged_by_you += 1
+                          if (
+                              merger.get("login", "").lower()
+                              == login.lower()
+                          ):
+                              merges_by_user += 1
 
                       except requests.RequestException as error:
                           detail_errors += 1
                           print(
-                              f"Erro ao verificar "
-                              f"{full_name}#{number}: {error}"
+                              f"Erro no PR {full_name}#"
+                              f"{pr['number']}: {error}"
                           )
 
-                  if stop_paging or len(pull_requests) < 100:
+                  if stop_paging or len(prs) < 100:
                       break
 
                   page += 1
 
-              if not repo_has_error:
-                  repos_checked_for_merges += 1
-
           print(f"Repositórios acessíveis: {len(repos)}")
-          print(
-              f"Repositórios verificados para merges: "
-              f"{repos_checked_for_merges}"
-          )
-          print(f"PRs mergeados detalhados: {merged_prs_checked}")
-          print(f"Falhas ao consultar detalhes: {detail_errors}")
-          print(f"Repositórios sem acesso: {inaccessible_repos}")
-          print(f"Merges realizados por você: {merged_by_you}")
-
-          draw_card(
-              "Atividade no GitHub",
-              "Desenvolvimento e colaboracao | ultimos 12 meses",
-              [
-                  (
-                      "Commits",
-                      contributions["totalCommitContributions"]
-                  ),
-                  (
-                      "PRs criados",
-                      contributions["totalPullRequestContributions"]
-                  ),
-                  (
-                      "Reviews enviados",
-                      contributions["totalPullRequestReviewContributions"]
-                  ),
-                  ("Merges por voce", merged_by_you),
-                  (
-                      "Issues abertas",
-                      contributions["totalIssueContributions"]
-                  ),
-                  (
-                      "Repos com commits",
-                      contributions[
-                          "totalRepositoriesWithContributedCommits"
-                      ]
-                  )
-              ],
-              "activity.svg"
-          )
+          print(f"PRs mergeados verificados: {merged_prs_checked}")
+          print(f"Merges feitos por você: {merges_by_user}")
+          print(f"Erros ao consultar detalhes: {detail_errors}")
+          print(f"Repositórios com erros de acesso: {repos_with_pr_errors}")
 
           # --------------------------------------------------
-          # 4. Linguagens em formato horizontal
+          # 4. Linguagens dos projetos com commits seus
           # --------------------------------------------------
 
           language_totals = {}
-          repos_included = 0
-          skipped = 0
+          language_repos = 0
+          language_errors = 0
 
           for repo in repos:
               full_name = repo["full_name"]
@@ -486,43 +310,262 @@ jobs:
                   if not languages:
                       continue
 
-                  repos_included += 1
+                  language_repos += 1
 
-                  for language, byte_count in languages.items():
+                  for language, size in languages.items():
                       language_totals[language] = (
-                          language_totals.get(language, 0)
-                          + byte_count
+                          language_totals.get(language, 0) + size
                       )
 
               except requests.HTTPError as error:
                   status = error.response.status_code
 
                   if status == 409:
-                      print(f"Sem historico consultavel: {full_name}")
+                      print(f"Sem histórico de linguagens: {full_name}")
                       continue
 
-                  skipped += 1
-                  print(f"Aviso HTTP {status}: {full_name}")
+                  language_errors += 1
+                  print(
+                      f"Erro HTTP {status} em {full_name}"
+                  )
 
               except requests.RequestException as error:
-                  skipped += 1
-                  print(f"Aviso de conexao em {full_name}: {error}")
+                  language_errors += 1
+                  print(f"Erro de linguagem em {full_name}: {error}")
 
-          draw_languages(language_totals, "top-langs.svg")
+          total_bytes = sum(language_totals.values())
 
-          print(f"Repos analisados para linguagens: {repos_included}")
-          print(f"Outros erros de linguagens: {skipped}")
-          print("Todos os cards foram gerados.")
+          languages = sorted(
+              language_totals.items(),
+              key=lambda item: item[1],
+              reverse=True
+          )[:6]
+
+          # --------------------------------------------------
+          # 5. Montagem do dashboard único
+          # --------------------------------------------------
+
+          W, H = 1000, 610
+
+          svg = [
+              f'<svg xmlns="http://www.w3.org/2000/svg" '
+              f'width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
+              f'<rect width="{W}" height="{H}" rx="20" fill="{BG}"/>',
+              f'<rect x="1" y="1" width="{W-2}" height="{H-2}" '
+              f'rx="19" fill="none" stroke="{BORDER}"/>',
+
+              # Cabeçalho
+              f'<text x="32" y="43" fill="{TEXT}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="23" font-weight="700">'
+              'GitHub Dashboard</text>',
+
+              f'<text x="32" y="67" fill="{MUTED}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="12">'
+              'Desenvolvimento, colaboração e projetos</text>',
+
+              f'<rect x="815" y="27" width="153" height="29" '
+              f'rx="14.5" fill="{PANEL}" stroke="{BORDER}"/>',
+
+              f'<circle cx="832" cy="41.5" r="4" fill="{GREEN}"/>',
+
+              f'<text x="844" y="46" fill="{MUTED}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="10">ÚLTIMOS 12 MESES</text>',
+
+              # Cards superiores
+              f'<rect x="24" y="91" width="466" height="192" '
+              f'rx="14" fill="{PANEL}" stroke="{BORDER}"/>',
+
+              f'<rect x="510" y="91" width="466" height="192" '
+              f'rx="14" fill="{PANEL}" stroke="{BORDER}"/>',
+
+              f'<circle cx="48" cy="119" r="5" fill="{BLUE}"/>',
+
+              f'<text x="62" y="124" fill="{TEXT}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="16" font-weight="600">GitHub Stats</text>',
+
+              f'<text x="42" y="151" fill="{MUTED}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="11">Visão geral dos seus repositórios</text>',
+
+              f'<circle cx="534" cy="119" r="5" fill="{GREEN}"/>',
+
+              f'<text x="548" y="124" fill="{TEXT}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="16" font-weight="600">GitHub Activity</text>',
+
+              f'<text x="528" y="151" fill="{MUTED}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="11">Desenvolvimento e colaboração</text>',
+          ]
+
+          def metric(x, y, label, value, color):
+              svg.extend([
+                  f'<text x="{x}" y="{y}" fill="{MUTED}" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="11">'
+                  f'{esc(label)}</text>',
+
+                  f'<text x="{x}" y="{y+27}" fill="{color}" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="23" font-weight="700">'
+                  f'{esc(value)}</text>'
+              ])
+
+          # Stats: quatro indicadores
+          metric(42, 181, "Estrelas recebidas", stars, BLUE)
+          metric(260, 181, "Repositórios próprios", len(owned), PURPLE)
+          metric(
+              42, 230, "Públicos / privados",
+              f"{public_repos} / {private_repos}", CYAN
+          )
+          metric(260, 230, "Forks recebidos", forks, ORANGE)
+
+          # Activity: seis indicadores
+          metric(
+              528, 181, "Commits",
+              contributions["totalCommitContributions"], BLUE
+          )
+          metric(
+              676, 181, "PRs criados",
+              contributions["totalPullRequestContributions"], PURPLE
+          )
+          metric(
+              824, 181, "Code reviews",
+              contributions["totalPullRequestReviewContributions"], CYAN
+          )
+          metric(528, 230, "Merges feitos por você", merges_by_user, GREEN)
+          metric(
+              676, 230, "Issues",
+              contributions["totalIssueContributions"], ORANGE
+          )
+          metric(
+              824, 230, "Repos com commits",
+              contributions["totalRepositoriesWithContributedCommits"], PINK
+          )
+
+          # Card de linguagens
+          svg.extend([
+              f'<rect x="24" y="301" width="952" height="283" '
+              f'rx="14" fill="{PANEL}" stroke="{BORDER}"/>',
+
+              f'<circle cx="48" cy="330" r="5" fill="{PURPLE}"/>',
+
+              f'<text x="62" y="335" fill="{TEXT}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="16" font-weight="600">'
+              'GitHub Languages</text>',
+
+              f'<text x="42" y="358" fill="{MUTED}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="11">'
+              'Linguagens dos repositórios com commits atribuídos a você'
+              '</text>'
+          ])
+
+          # Barra horizontal proporcional
+          bar_x, bar_y, bar_w, bar_h = 42, 381, 916, 12
+
+          svg.append(
+              f'<rect x="{bar_x}" y="{bar_y}" '
+              f'width="{bar_w}" height="{bar_h}" '
+              f'rx="6" fill="{BORDER}"/>'
+          )
+
+          if total_bytes:
+              cursor = bar_x
+
+              for i, (name, size) in enumerate(languages):
+                  segment = bar_w * size / total_bytes
+
+                  if i == len(languages) - 1:
+                      segment = bar_x + bar_w - cursor
+
+                  svg.append(
+                      f'<rect x="{cursor:.2f}" y="{bar_y}" '
+                      f'width="{max(segment, 0):.2f}" '
+                      f'height="{bar_h}" fill="{COLORS[i]}"/>'
+                  )
+
+                  cursor += segment
+
+          # Legenda em três colunas
+          for i, (name, size) in enumerate(languages):
+              col = i % 3
+              row = i // 3
+              x = 42 + col * 310
+              y = 432 + row * 62
+
+              pct = size / total_bytes * 100 if total_bytes else 0
+
+              svg.extend([
+                  f'<circle cx="{x+5}" cy="{y-4}" r="5" '
+                  f'fill="{COLORS[i]}"/>',
+
+                  f'<text x="{x+18}" y="{y}" fill="{TEXT}" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="13" font-weight="600">'
+                  f'{esc(name)}</text>',
+
+                  f'<text x="{x+18}" y="{y+20}" fill="{MUTED}" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="11">'
+                  f'{pct:.1f}%</text>',
+
+                  f'<rect x="{x+18}" y="{y+29}" width="250" '
+                  f'height="4" rx="2" fill="{BORDER}"/>',
+
+                  f'<rect x="{x+18}" y="{y+29}" '
+                  f'width="{250*pct/100:.2f}" height="4" '
+                  f'rx="2" fill="{COLORS[i]}"/>'
+              ])
+
+          if not languages:
+              svg.append(
+                  f'<text x="42" y="425" fill="{MUTED}" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="12">'
+                  'Nenhuma linguagem encontrada nos repositórios analisados.'
+                  '</text>'
+              )
+
+          svg.extend([
+              f'<text x="32" y="601" fill="{MUTED}" '
+              'font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="10">'
+              f'Dados consultados via GitHub API · {esc(login)}</text>',
+              '</svg>'
+          ])
+
+          (OUT / "dashboard.svg").write_text(
+              "\n".join(svg), encoding="utf-8"
+          )
+
+          print("Dashboard gerado: profile/dashboard.svg")
+          print(f"Estrelas: {stars} | Repositórios próprios: {len(owned)}")
+          print(
+              f"Commits: {contributions['totalCommitContributions']} | "
+              f"PRs: {contributions['totalPullRequestContributions']} | "
+              f"Reviews: {contributions['totalPullRequestReviewContributions']} | "
+              f"Merges feitos por você: {merges_by_user} | "
+              f"Issues: {contributions['totalIssueContributions']}"
+          )
+          print(f"Repositórios com linguagens: {language_repos}")
+          print(f"Erros de detalhes de PRs: {detail_errors}")
+          print(f"Erros de linguagens: {language_errors}")
           PY
 
-      - name: Commit generated cards
+      - name: Commit generated dashboard
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add profile/stats.svg profile/activity.svg profile/top-langs.svg
+          git add profile/dashboard.svg
 
           if ! git diff --cached --quiet; then
-            git commit -m "chore: redesign GitHub profile cards"
+            git commit -m "chore: update GitHub dashboard"
             git push
           fi
