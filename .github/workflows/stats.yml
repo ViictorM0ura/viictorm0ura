@@ -17,44 +17,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Diagnose private repository access
-        env:
-          GH_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=== Authenticated GitHub user ==="
-          curl -fsSL \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/user |
-            jq '{login, type}'
-
-          echo "=== Private repositories accessible to token ==="
-          curl -fsSL \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/user/repos?visibility=private&affiliation=owner,collaborator,organization_member&per_page=100" \
-            > /tmp/repos.json
-
-          jq '{
-            private_repositories_in_response: [.[] | select(.private == true)] | length,
-            tld_teledata_private_repositories: [.[] | select(.private == true and (.owner.login | ascii_downcase) == "tld-teledata")] | length,
-            pagination_note: "The response contains at most 100 repositories"
-          }' /tmp/repos.json
-
-          echo "=== TLD-TeleData organization API ==="
-          status=$(curl -sS \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -o /tmp/org.json \
-            -w "%{http_code}" \
-            https://api.github.com/orgs/TLD-TeleData)
-
-          echo "Organization API HTTP status: $status"
-          jq '{login, message}' /tmp/org.json
-
       - name: Generate stats card
         uses: stats-organization/github-readme-stats-action@v2
         with:
@@ -62,14 +24,223 @@ jobs:
           options: username=${{ github.repository_owner }}&show_icons=true&theme=tokyonight&hide_border=true&include_all_commits=true&locale=pt-br
           path: profile/stats.svg
           token: ${{ secrets.GH_STATS_TOKEN }}
+          fail_on_error: true
 
-      - name: Generate languages card
-        uses: stats-organization/github-readme-stats-action@v2
-        with:
-          card: top-langs
-          options: username=${{ github.repository_owner }}&layout=compact&theme=tokyonight&hide_border=true&langs_count=6
-          path: profile/top-langs.svg
-          token: ${{ secrets.GH_STATS_TOKEN }}
+      - name: Generate languages from repositories with my commits
+        env:
+          GH_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p scripts profile
+
+          cat > /tmp/generate-languages.py <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from collections import Counter
+          from xml.sax.saxutils import escape
+
+          TOKEN = os.environ["GH_TOKEN"]
+          API = "https://api.github.com"
+          HEADERS = {
+              "Authorization": f"Bearer {TOKEN}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "User-Agent": "github-profile-stats",
+          }
+
+          def get_json(url, retries=4):
+              for attempt in range(retries):
+                  req = urllib.request.Request(url, headers=HEADERS)
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as response:
+                          return json.load(response)
+                  except urllib.error.HTTPError as error:
+                      if error.code == 403:
+                          remaining = error.headers.get("X-RateLimit-Remaining")
+                          if remaining == "0":
+                              reset = int(error.headers.get("X-RateLimit-Reset", "0"))
+                              wait = max(1, reset - int(time.time()) + 2)
+                              print(f"API rate limit reached. Waiting {wait}s.")
+                              time.sleep(min(wait, 3600))
+                              continue
+                      if error.code >= 500 and attempt < retries - 1:
+                          time.sleep(2 ** attempt)
+                          continue
+                      raise RuntimeError(
+                          f"GitHub API returned HTTP {error.code} for an API request"
+                      ) from None
+                  except urllib.error.URLError:
+                      if attempt == retries - 1:
+                          raise RuntimeError("Could not connect to GitHub API") from None
+                      time.sleep(2 ** attempt)
+              raise RuntimeError("GitHub API request failed after retries")
+
+          user = get_json(f"{API}/user")
+          login = user["login"]
+          print(f"Authenticated account: {login}")
+
+          repos = []
+          page = 1
+
+          while True:
+              url = (
+                  f"{API}/user/repos?"
+                  + urllib.parse.urlencode({
+                      "visibility": "all",
+                      "affiliation": "owner,collaborator,organization_member",
+                      "per_page": 100,
+                      "page": page,
+                      "sort": "updated",
+                  })
+              )
+              batch = get_json(url)
+              if not batch:
+                  break
+              repos.extend(batch)
+              print(f"Repository listing page {page}: {len(batch)} entries")
+              if len(batch) < 100:
+                  break
+              page += 1
+
+          print(f"Accessible repositories discovered: {len(repos)}")
+
+          languages = Counter()
+          repos_with_commits = 0
+          inaccessible = 0
+
+          for index, repo in enumerate(repos, start=1):
+              owner = repo["owner"]["login"]
+              name = repo["name"]
+              encoded_owner = urllib.parse.quote(owner, safe="")
+              encoded_name = urllib.parse.quote(name, safe="")
+              base = f"{API}/repos/{encoded_owner}/{encoded_name}"
+
+              try:
+                  commits = get_json(
+                      f"{base}/commits?"
+                      + urllib.parse.urlencode({
+                          "author": login,
+                          "per_page": 1,
+                      })
+                  )
+
+                  if not commits:
+                      continue
+
+                  repo_languages = get_json(f"{base}/languages")
+                  if repo_languages:
+                      repos_with_commits += 1
+                      languages.update(repo_languages)
+
+              except (RuntimeError, KeyError, TypeError) as error:
+                  inaccessible += 1
+                  print(
+                      f"Skipped repository {index}; "
+                      "API access or commit lookup failed."
+                  )
+
+              if index % 25 == 0:
+                  print(f"Checked {index}/{len(repos)} repositories")
+
+          total_bytes = sum(languages.values())
+
+          if total_bytes == 0:
+              raise RuntimeError(
+                  "No language data found in repositories with commits "
+                  "attributed to this GitHub account."
+              )
+
+          top = languages.most_common(6)
+          print(f"Repositories with attributed commits and language data: {repos_with_commits}")
+          print(f"Repositories skipped due to API errors: {inaccessible}")
+          print("Language totals:")
+          for language, size in top:
+              print(f"  {language}: {size * 100 / total_bytes:.2f}%")
+
+          palette = {
+              "TypeScript": "#3178c6",
+              "JavaScript": "#f1e05a",
+              "HTML": "#e34c26",
+              "CSS": "#663399",
+              "Vue": "#41b883",
+              "Java": "#b07219",
+              "Python": "#3572A5",
+              "PHP": "#4F5D95",
+              "Go": "#00ADD8",
+              "C#": "#178600",
+              "C++": "#f34b7d",
+              "TeX": "#3D6117",
+              "Shell": "#89e051",
+              "Dockerfile": "#384d54",
+              "SQL": "#e38c00",
+          }
+
+          width, height = 400, 220
+          x, y = 25, 65
+          bar_width = 350
+          bar_height = 10
+
+          svg = [
+              f'<svg xmlns="http://www.w3.org/2000/svg" '
+              f'width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img">',
+              '<rect width="100%" height="100%" rx="8" fill="#1a1b27"/>',
+              '<text x="25" y="35" font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="18" font-weight="600" fill="#70a5fd">'
+              'Most Used Languages</text>',
+              '<text x="25" y="52" font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="10" fill="#a9b1d6">'
+              'Repositories with commits attributed to your account</text>',
+          ]
+
+          current_x = x
+          for language, size in top:
+              portion = size / total_bytes * bar_width
+              color = palette.get(language, "#8b8b8b")
+              svg.append(
+                  f'<rect x="{current_x:.2f}" y="{y}" '
+                  f'width="{portion:.2f}" height="{bar_height}" '
+                  f'fill="{color}"/>'
+              )
+              current_x += portion
+
+          for index, (language, size) in enumerate(top):
+              column = index % 2
+              row = index // 2
+              tx = 25 + column * 190
+              ty = 105 + row * 32
+              percent = size * 100 / total_bytes
+              color = palette.get(language, "#8b8b8b")
+
+              svg.append(
+                  f'<circle cx="{tx + 5}" cy="{ty - 4}" r="5" fill="{color}"/>'
+              )
+              svg.append(
+                  f'<text x="{tx + 16}" y="{ty}" '
+                  f'font-family="Segoe UI,Arial,sans-serif" '
+                  f'font-size="11" fill="#38bdae">'
+                  f'{escape(language)} {percent:.2f}%</text>'
+              )
+
+          svg.append(
+              '<text x="25" y="207" font-family="Segoe UI,Arial,sans-serif" '
+              'font-size="9" fill="#a9b1d6">'
+              f'{repos_with_commits} repositories included</text>'
+          )
+          svg.append("</svg>")
+
+          with open("profile/top-langs.svg", "w", encoding="utf-8") as file:
+              file.write("\n".join(svg))
+
+          print("Generated profile/top-langs.svg")
+          PY
+
+          python /tmp/generate-languages.py
 
       - name: Commit updated cards
         run: |
