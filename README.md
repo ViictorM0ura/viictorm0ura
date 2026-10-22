@@ -1,66 +1,100 @@
-# 👨‍💻 Vitor Moura
 
-**`Full Stack Developer`** | **`Analista de Sistemas`**
 
-Olá! Sou um desenvolvedor Full Stack focado em construir soluções eficientes e escaláveis.
+<div align="center">
 
-Minha caixa de ferramentas inclui **React.js, Vue.js** para o Front-end, e **Java, PHP (Laravel)** e **SQL** para o Back-end. Curioso por natureza, estou sempre explorando novas tecnologias e linguagens pronto para me adaptar a qualquer desafio.
+# Vitor Moura
 
-Explore meus projetos e vamos criar algo incrível juntos!
+<a href="https://github.com/DenverCoder1/readme-typing-svg">
+  <img
+    src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=20&duration=2800&pause=900&color=58A6FF&center=true&vCenter=true&width=520&lines=Full+Stack+Developer;Analista+de+Sistemas;Integra%C3%A7%C3%A3o+de+Sistemas+e+APIs;Sempre+aprendendo+algo+novo"
+    alt="Full Stack Developer | Analista de Sistemas"
+  />
+</a>
+
+Desenvolvimento de aplicações, integração de sistemas e soluções em cloud.
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/vitor-moura-312976325)
+[![Portfólio](https://img.shields.io/badge/Portfólio-24292F?style=flat-square&logo=vercel&logoColor=white)](https://portifolio-two-psi-25.vercel.app)
+[![Email](https://img.shields.io/badge/Email-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:contatovitormoura1998@hotmail.com)
+
+</div>
+
 
 ---
 
-**Conecte-se comigo:**
+## Sobre mim
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/vitor-moura-312976325)
-[![Portfólio](https://img.shields.io/badge/Portfólio-333333?style=for-the-badge&logo=github&logoColor=white)](https://portifolio-two-psi-25.vercel.app)
-[![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:contatovitormoura1998@hotmail.com)
+Sou desenvolvedor Full Stack e Analista de Sistemas, interessado em tecnologia, inovação e na construção de soluções que resolvem problemas reais.
 
----
-### 🤖 Linguagens e Tecnologias
-<img align="left" alt="JavaScript" title="JavaScript" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/javascript/javascript-original.svg" />
-<img align="left" alt="TypeScript" title="TypeScript" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/typescript/typescript-original.svg" />
-<img align="left" alt="Python" title="Python" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg" />
-<img align="left" alt="Java" title="Java" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/java/java-original.svg" />
-<img align="left" alt="PHP" title="PHP" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/php/php-original.svg" />
-<img align="left" alt="Lua" title="Lua" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/lua/lua-original.svg" />
-<img align="left" alt="HTML5" title="HTML5" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/html5/html5-original.svg" />
-<img align="left" alt="CSS3" title="CSS3" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/css3/css3-original.svg" />
-<img align="left" alt="React.js" title="React.js" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/react/react-original.svg" />
-<img align="left" alt="Angular" title="Angular" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/angularjs/angularjs-original.svg" />
-<img align="left" alt="Vue.js" title="Vue.js" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/vuejs/vuejs-original.svg" />
-<img align="left" alt="Laravel" title="Laravel" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/laravel/laravel-original.svg" />
-<img align="left" alt="Express.js" title="Express.js" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/express/express-original.svg" />
-<img align="left" alt="Nginx" title="Nginx" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nginx/nginx-original.svg" />
-<img align="left" alt="RESTful API" title="RESTful API" width="40px" style="padding-right:10px;" src="https://img.shields.io/badge/RESTful%20API-000000?style=for-the-badge&logo=api&logoColor=white" />
-<img align="left" alt="SQL" title="SQL" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/postgresql/postgresql-original.svg" /> <img align="left" alt="MySQL" title="MySQL" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mysql/mysql-original.svg" />
-<img align="left" alt="SQLite" title="SQLite" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/sqlite/sqlite-original.svg" />
-<img align="left" alt="MongoDB" title="MongoDB" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mongodb/mongodb-original.svg" />
-<br clear="left"/>
-<img align="left" alt="Git" title="Git" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/git/git-original.svg" />
-<img align="left" alt="GitHub" title="GitHub" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/github/github-original.svg" />
-<img align="left" alt="Docker" title="Docker" width="40px" style="padding-right:10px;" src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/docker/docker-original.svg" />
-<br clear="left"/>
+Atuo com desenvolvimento de aplicações, integração entre sistemas, APIs e bancos de dados. Também trabalho com serviços em nuvem e soluções conversacionais, buscando sempre aprimorar minhas habilidades e encontrar maneiras melhores de resolver problemas.
 
----
+## Tecnologias e ferramentas
 
-
-### 📊 Estatísticas
+**Linguagens e Back-end**
 
 <p>
-  <img 
-    align="left" 
-    alt="GitHub Stats" 
-    height="200" 
-    style="padding-right: 10px;" 
-    src="https://github-readme-stats.vercel.app/api?username=viictorm0ura&show_icons=true&theme=tokyonight&include_all_commits=true&locale=pt-br" 
-  />
-
-<img 
-      align="left" 
-      alt="GitHub Stats" 
-      height="200" 
-      src="https://github-readme-stats.vercel.app/api/top-langs/?username=viictorm0ura&theme=tokyonight&layout=compact&custom_title=Tecnologias&langs_count=9" 
-  />
-
+  <img src="https://skillicons.dev/icons?i=javascript,typescript,nodejs,java,php,laravel,express" alt="Linguagens e tecnologias de back-end" />
 </p>
+
+**Front-end**
+
+<p>
+  <img src="https://skillicons.dev/icons?i=react,nextjs,vue,angular,html,css" alt="Tecnologias de front-end" />
+</p>
+
+**Bancos de dados**
+
+<p>
+  <img src="https://skillicons.dev/icons?i=postgres,mysql,sqlite,mongodb" alt="Bancos de dados" />
+</p>
+
+**Cloud e ferramentas**
+
+<p>
+  <img src="https://skillicons.dev/icons?i=aws,docker,git,github,githubactions,nginx" alt="Cloud e ferramentas de desenvolvimento" />
+</p>
+
+---
+
+## Estatísticas do GitHub
+
+<div align="center">
+  <img
+    height="165"
+    src="https://github-readme-stats.vercel.app/api?username=viictorm0ura&show_icons=true&theme=tokyonight&hide_border=true&include_all_commits=true&locale=pt-br"
+    alt="Estatísticas do GitHub"
+  />
+  <img
+    height="165"
+    src="https://github-readme-stats.vercel.app/api/top-langs/?username=viictorm0ura&layout=compact&theme=tokyonight&hide_border=true&langs_count=6&locale=pt-br"
+    alt="Linguagens mais utilizadas"
+  />
+</div>
+
+---
+
+## Minhas contribuições
+
+<div align="center">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="https://raw.githubusercontent.com/viictorm0ura/viictorm0ura/output/github-snake-dark.svg"
+    />
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="https://raw.githubusercontent.com/viictorm0ura/viictorm0ura/output/github-snake.svg"
+    />
+    <img
+      src="https://raw.githubusercontent.com/viictorm0ura/viictorm0ura/output/github-snake.svg"
+      alt="Animação das contribuições do GitHub"
+      width="100%"
+    />
+  </picture>
+</div>
+
+---
+
+<div align="center">
+  <sub>Transformando curiosidade em conhecimento e ideias em soluções. 🚀</sub>
+</div>
