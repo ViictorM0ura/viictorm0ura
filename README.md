@@ -1,24 +1,28 @@
 
-
 <div align="center">
 
 # Vitor Moura
 
 <a href="https://github.com/DenverCoder1/readme-typing-svg">
   <img
-    src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=20&duration=2800&pause=900&color=58A6FF&center=true&vCenter=true&width=520&lines=Full+Stack+Developer;Analista+de+Sistemas;Integra%C3%A7%C3%A3o+de+Sistemas+e+APIs;Sempre+aprendendo+algo+novo"
+    src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=20&duration=2800&pause=900&color=58A6FF&center=true&vCenter=true&width=520&lines=Full+Stack+Developer;Analista+de+Sistemas;Integra%C3%A7%C3%A3o+de+Sistemas+e+APIs;Code+Review+e+Colabora%C3%A7%C3%A3o+T%C3%A9cnica"
     alt="Full Stack Developer | Analista de Sistemas"
   />
 </a>
 
-Desenvolvimento de aplicações, integração de sistemas e soluções em cloud.
+<p>Desenvolvimento de aplicações, integração de sistemas e soluções em cloud.</p>
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/vitor-moura-312976325)
-[![Portfólio](https://img.shields.io/badge/Portfólio-24292F?style=flat-square&logo=vercel&logoColor=white)](https://portifolio-two-psi-25.vercel.app)
-[![Email](https://img.shields.io/badge/Email-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:contatovitormoura1998@hotmail.com)
+<a href="https://www.linkedin.com/in/vitor-moura-312976325">
+  <img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn" />
+</a>
+<a href="https://portifolio-two-psi-25.vercel.app">
+  <img src="https://img.shields.io/badge/Portf%C3%B3lio-24292F?style=flat-square&logo=vercel&logoColor=white" alt="Portfólio" />
+</a>
+<a href="mailto:contatovitormoura1998@hotmail.com">
+  <img src="https://img.shields.io/badge/Email-EA4335?style=flat-square&logo=gmail&logoColor=white" alt="Email" />
+</a>
 
 </div>
-
 
 ---
 
@@ -26,54 +30,51 @@ Desenvolvimento de aplicações, integração de sistemas e soluções em cloud.
 
 Sou desenvolvedor Full Stack e Analista de Sistemas, interessado em tecnologia, inovação e na construção de soluções que resolvem problemas reais.
 
-Atuo com desenvolvimento de aplicações, integração entre sistemas, APIs e bancos de dados. Também trabalho com serviços em nuvem e soluções conversacionais, buscando sempre aprimorar minhas habilidades e encontrar maneiras melhores de resolver problemas.
+Atuo no desenvolvimento de aplicações, integração entre sistemas, APIs, bancos de dados e soluções em cloud. Também participo do desenvolvimento colaborativo, realizando code reviews, revisando pull requests e integrando código de outros desenvolvedores.
+
+Tenho experiência com soluções conversacionais e integrações entre plataformas, buscando construir soluções organizadas, confiáveis e alinhadas às necessidades de cada projeto.
 
 ## Tecnologias e ferramentas
 
-**Linguagens e Back-end**
+**Back-end e linguagens**
 
 <p>
-  <img src="https://skillicons.dev/icons?i=javascript,typescript,nodejs,java,php,laravel,express" alt="Linguagens e tecnologias de back-end" />
+  <img src="https://skillicons.dev/icons?i=javascript,typescript,nodejs,java,php,laravel,express" alt="JavaScript, TypeScript, Node.js, Java, PHP, Laravel e Express" />
 </p>
 
 **Front-end**
 
 <p>
-  <img src="https://skillicons.dev/icons?i=react,nextjs,vue,angular,html,css" alt="Tecnologias de front-end" />
+  <img src="https://skillicons.dev/icons?i=react,nextjs,vue,angular,html,css" alt="React, Next.js, Vue, Angular, HTML e CSS" />
 </p>
 
 **Bancos de dados**
 
 <p>
-  <img src="https://skillicons.dev/icons?i=postgres,mysql,sqlite,mongodb" alt="Bancos de dados" />
+  <img src="https://skillicons.dev/icons?i=postgres,mysql,sqlite,mongodb" alt="PostgreSQL, MySQL, SQLite e MongoDB" />
 </p>
 
 **Cloud e ferramentas**
 
 <p>
-  <img src="https://skillicons.dev/icons?i=aws,docker,git,github,githubactions,nginx" alt="Cloud e ferramentas de desenvolvimento" />
+  <img src="https://skillicons.dev/icons?i=aws,docker,git,github,githubactions,nginx" alt="AWS, Docker, Git, GitHub, GitHub Actions e Nginx" />
 </p>
 
 ---
 
-## Estatísticas do GitHub
+## Meu GitHub
 
 <div align="center">
   <img
-    height="165"
-    src="https://github-readme-stats.vercel.app/api?username=viictorm0ura&show_icons=true&theme=tokyonight&hide_border=true&include_all_commits=true&locale=pt-br"
-    alt="Estatísticas do GitHub"
-  />
-  <img
-    height="165"
-    src="https://github-readme-stats.vercel.app/api/top-langs/?username=viictorm0ura&layout=compact&theme=tokyonight&hide_border=true&langs_count=6&locale=pt-br"
-    alt="Linguagens mais utilizadas"
+    src="profile/dashboard.svg"
+    width="100%"
+    alt="Painel com estatísticas, atividade, merges e linguagens do GitHub"
   />
 </div>
 
 ---
 
-## Minhas contribuições
+## Contribuições
 
 <div align="center">
   <picture>
