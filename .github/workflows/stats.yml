@@ -120,7 +120,6 @@ jobs:
                       f'{esc(value)}</text>'
                   ])
 
-              # Sem rodapé para não sobrepor as métricas.
               svg.append("</svg>")
 
               (OUT / filename).write_text(
@@ -133,13 +132,13 @@ jobs:
           until = now.strftime("%Y-%m-%d")
 
           # --------------------------------------------------
-          # 1. Estatísticas gerais
+          # 1. Perfil e repositórios acessíveis
           # --------------------------------------------------
 
           user = get(f"{API}/user")
           login = user["login"]
 
-          owned_repos = []
+          repos = []
           page = 1
 
           while True:
@@ -147,22 +146,68 @@ jobs:
                   f"{API}/user/repos",
                   {
                       "visibility": "all",
-                      "affiliation": "owner",
+                      "affiliation": (
+                          "owner,collaborator,organization_member"
+                      ),
                       "per_page": 100,
-                      "page": page
+                      "page": page,
+                      "sort": "updated"
                   }
               )
 
               if not batch:
                   break
 
-              owned_repos.extend(batch)
+              repos.extend(batch)
               page += 1
+
+          # Estatísticas gerais sem repetir as métricas do card
+          # de atividade profissional.
+          owned_repos = [
+              repo for repo in repos
+              if repo.get("owner", {}).get("login", "").lower()
+              == login.lower()
+          ]
 
           stars = sum(
               repo.get("stargazers_count", 0)
               for repo in owned_repos
           )
+
+          forks = sum(
+              repo.get("forks_count", 0)
+              for repo in owned_repos
+          )
+
+          public_repos = sum(
+              1 for repo in owned_repos
+              if not repo.get("private", False)
+          )
+
+          private_repos = sum(
+              1 for repo in owned_repos
+              if repo.get("private", False)
+          )
+
+          draw_card(
+              "GitHub Stats",
+              "Visao geral dos seus repositorios",
+              [
+                  ("Estrelas recebidas", stars),
+                  ("Repositorios proprios", len(owned_repos)),
+                  ("Repos publicos", public_repos),
+                  ("Repos privados", private_repos),
+                  ("Forks recebidos", forks),
+                  ("Seguidores", user.get("followers", 0))
+              ],
+              "stats.svg"
+          )
+
+          print("Card geral gerado.")
+
+          # --------------------------------------------------
+          # 2. Contribuições reconhecidas pelo GitHub
+          # --------------------------------------------------
 
           contribution_query = """
           query($login: String!, $from: DateTime!, $to: DateTime!) {
@@ -188,99 +233,107 @@ jobs:
               data["user"]["contributionsCollection"]
           )
 
-          draw_card(
-              "GitHub Stats",
-              "Resumo geral | ultimos 12 meses",
-              [
-                  ("Estrelas nos seus repos", stars),
-                  (
-                      "Commits",
-                      contributions["totalCommitContributions"]
-                  ),
-                  (
-                      "PRs criados",
-                      contributions["totalPullRequestContributions"]
-                  ),
-                  (
-                      "Issues",
-                      contributions["totalIssueContributions"]
-                  ),
-                  (
-                      "Reviews enviados",
-                      contributions["totalPullRequestReviewContributions"]
-                  ),
-                  (
-                      "Repos com commits",
-                      contributions[
-                          "totalRepositoriesWithContributedCommits"
-                      ]
-                  )
-              ],
-              "stats.svg"
-          )
-
-          print("Estatísticas gerais geradas.")
-
           # --------------------------------------------------
-          # 2. Merges realizados por você
+          # 3. Merges feitos pelo usuário
+          #
+          # Consulta os PRs fechados diretamente em cada repo.
+          # A lista de PRs inclui merged_at e merged_by.
           # --------------------------------------------------
-
-          # Busca PRs mergeados no período e consulta merged_by.login
-          # para identificar quem realizou o merge.
-          merged_query = (
-              f"is:pr is:merged "
-              f"merged:>={since} merged:<={until}"
-          )
 
           merged_by_you = 0
           checked_prs = 0
-          inaccessible_prs = 0
-          total_found = 0
+          inaccessible_repos = 0
+          repos_checked_for_merges = 0
 
-          for page in range(1, 11):
-              results = get(
-                  f"{API}/search/issues",
-                  {
-                      "q": merged_query,
-                      "sort": "updated",
-                      "order": "desc",
-                      "per_page": 100,
-                      "page": page
-                  }
-              )
+          for repo in repos:
+              full_name = repo["full_name"]
+              page = 1
+              repo_has_error = False
 
-              items = results.get("items", [])
-              total_found = results["total_count"]
-
-              if not items:
-                  break
-
-              for item in items:
-                  repo_url = item.get("repository_url")
-                  number = item.get("number")
-
-                  if not repo_url or not number:
-                      continue
-
+              while True:
                   try:
-                      pr = get(f"{repo_url}/pulls/{number}")
+                      pull_requests = get(
+                          f"{API}/repos/{full_name}/pulls",
+                          {
+                              "state": "closed",
+                              "sort": "updated",
+                              "direction": "desc",
+                              "per_page": 100,
+                              "page": page
+                          }
+                      )
+
+                  except requests.HTTPError as error:
+                      status = error.response.status_code
+
+                      # Repositórios sem acesso ou removidos.
+                      if status in (403, 404, 409):
+                          inaccessible_repos += 1
+                          repo_has_error = True
+                          print(
+                              f"Aviso ao consultar PRs de {full_name}: "
+                              f"HTTP {status}"
+                          )
+                          break
+
+                      raise
+
+                  if not pull_requests:
+                      break
+
+                  stop_paging = False
+
+                  for pr in pull_requests:
+                      updated_at = pr.get("updated_at")
+
+                      if updated_at:
+                          updated_date = datetime.fromisoformat(
+                              updated_at.replace("Z", "+00:00")
+                          )
+
+                          # Como a lista está ordenada por atualização,
+                          # PRs mais antigos que o início do período
+                          # não precisam ser examinados nesta página.
+                          if updated_date < start:
+                              stop_paging = True
+                              break
+
+                      merged_at = pr.get("merged_at")
+                      if not merged_at:
+                          continue
+
+                      merged_date = datetime.fromisoformat(
+                          merged_at.replace("Z", "+00:00")
+                      )
+
+                      if not (start <= merged_date <= now):
+                          continue
+
                       checked_prs += 1
 
                       merger = pr.get("merged_by") or {}
+                      merger_login = merger.get("login", "")
 
-                      if merger.get("login", "").lower() == login.lower():
+                      if merger_login.lower() == login.lower():
                           merged_by_you += 1
 
-                  except requests.RequestException as error:
-                      inaccessible_prs += 1
-                      print(f"Aviso ao consultar PR: {error}")
+                  if stop_paging or len(pull_requests) < 100:
+                      break
 
-              if page * 100 >= min(total_found, 1000):
-                  break
+                  page += 1
 
-          print(f"PRs mergeados encontrados: {total_found}")
-          print(f"PRs verificados: {checked_prs}")
-          print(f"PRs sem acesso: {inaccessible_prs}")
+              if not repo_has_error:
+                  repos_checked_for_merges += 1
+
+          print(
+              f"Repositórios acessíveis: {len(repos)}"
+          )
+          print(
+              f"Repositórios verificados para merges: "
+              f"{repos_checked_for_merges}"
+          )
+          print(f"PRs mergeados verificados no período: {checked_prs}")
+          print(f"Repositórios sem acesso aos PRs: {inaccessible_repos}")
           print(f"Merges realizados por você: {merged_by_you}")
 
           draw_card(
@@ -315,31 +368,8 @@ jobs:
           )
 
           # --------------------------------------------------
-          # 3. Linguagens dos repositórios com commits seus
+          # 4. Linguagens dos repositórios com commits seus
           # --------------------------------------------------
-
-          repos = []
-          page = 1
-
-          while True:
-              batch = get(
-                  f"{API}/user/repos",
-                  {
-                      "visibility": "all",
-                      "affiliation": (
-                          "owner,collaborator,organization_member"
-                      ),
-                      "per_page": 100,
-                      "page": page,
-                      "sort": "updated"
-                  }
-              )
-
-              if not batch:
-                  break
-
-              repos.extend(batch)
-              page += 1
 
           language_totals = {}
           repos_included = 0
@@ -418,9 +448,8 @@ jobs:
               "top-langs.svg"
           )
 
-          print(f"Repositórios acessíveis: {len(repos)}")
-          print(f"Repositórios analisados: {repos_included}")
-          print(f"Repositórios com outros erros: {skipped}")
+          print(f"Repos analisados para linguagens: {repos_included}")
+          print(f"Outros erros de linguagens: {skipped}")
           print("Todos os cards foram gerados.")
           PY
 
