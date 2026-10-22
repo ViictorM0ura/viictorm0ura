@@ -17,17 +17,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: python -m pip install requests
 
-      - name: Generate classic GitHub stats
-        uses: stats-organization/github-readme-stats-action@v2
-        with:
-          token: ${{ secrets.GH_STATS_TOKEN }}
-          card: stats
-          path: profile/stats.svg
-
-      - name: Generate activity and language cards
+      - name: Generate GitHub profile cards
         env:
           GH_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
           GH_USERNAME: ${{ github.repository_owner }}
@@ -76,17 +69,10 @@ jobs:
 
               return result["data"]
 
-          def search_count(query):
-              result = get(
-                  f"{API}/search/issues",
-                  {"q": query, "per_page": 1}
-              )
-              return result["total_count"]
-
           def esc(value):
               return html.escape(str(value))
 
-          def draw_card(title, subtitle, metrics, footer, filename):
+          def draw_card(title, subtitle, metrics, filename):
               width, height = 495, 260
 
               colors = [
@@ -134,13 +120,8 @@ jobs:
                       f'{esc(value)}</text>'
                   ])
 
-              svg.extend([
-                  '<text x="24" y="246" fill="#8B949E" '
-                  'font-family="Segoe UI,Arial,sans-serif" '
-                  'font-size="10">'
-                  f'{esc(footer)}</text>',
-                  '</svg>'
-              ])
+              # Sem rodapé para não sobrepor a última linha.
+              svg.append("</svg>")
 
               (OUT / filename).write_text(
                   "\n".join(svg), encoding="utf-8"
@@ -151,9 +132,39 @@ jobs:
           since = start.strftime("%Y-%m-%d")
           until = now.strftime("%Y-%m-%d")
 
-          # 1. Estatísticas de contribuições do GitHub.
-          # Não passamos includePrivateContributions, pois esse
-          # argumento não é aceito pela consulta GraphQL.
+          # --------------------------------------------------
+          # 1. Estatísticas gerais
+          # --------------------------------------------------
+
+          user = get(f"{API}/user")
+          login = user["login"]
+
+          # Estrelas recebidas nos repositórios próprios acessíveis.
+          owned_repos = []
+          page = 1
+
+          while True:
+              batch = get(
+                  f"{API}/user/repos",
+                  {
+                      "visibility": "all",
+                      "affiliation": "owner",
+                      "per_page": 100,
+                      "page": page
+                  }
+              )
+
+              if not batch:
+                  break
+
+              owned_repos.extend(batch)
+              page += 1
+
+          stars = sum(
+              repo.get("stargazers_count", 0)
+              for repo in owned_repos
+          )
+
           contribution_query = """
           query($login: String!, $from: DateTime!, $to: DateTime!) {
             user(login: $login) {
@@ -168,64 +179,151 @@ jobs:
           }
           """
 
-          result = graphql(contribution_query, {
-              "login": USERNAME,
+          data = graphql(contribution_query, {
+              "login": login,
               "from": start.isoformat(),
               "to": now.isoformat()
           })
 
           contributions = (
-              result["user"]["contributionsCollection"]
+              data["user"]["contributionsCollection"]
           )
 
-          # 2. PRs integrados por você.
-          # A consulta considera PRs de colegas também, desde que
-          # o GitHub identifique você como responsável pelo merge.
+          draw_card(
+              "GitHub Stats",
+              "Resumo geral | ultimos 12 meses",
+              [
+                  ("Estrelas nos seus repos", stars),
+                  (
+                      "Commits",
+                      contributions["totalCommitContributions"]
+                  ),
+                  (
+                      "PRs criados",
+                      contributions["totalPullRequestContributions"]
+                  ),
+                  (
+                      "Issues",
+                      contributions["totalIssueContributions"]
+                  ),
+                  (
+                      "Reviews enviados",
+                      contributions["totalPullRequestReviewContributions"]
+                  ),
+                  (
+                      "Repos com commits",
+                      contributions[
+                          "totalRepositoriesWithContributedCommits"
+                      ]
+                  )
+              ],
+              "stats.svg"
+          )
+
+          print("Estatísticas gerais geradas.")
+
+          # --------------------------------------------------
+          # 2. Merges realmente realizados pelo usuário
+          # --------------------------------------------------
+
           merged_query = (
-              f"is:pr is:merged merged-by:{USERNAME} "
+              f"is:pr is:merged "
+              f"merged:>={since} merged:<={until"
+          )
+
+          # Corrige a construção da consulta antes de executá-la.
+          merged_query = (
+              f"is:pr is:merged "
               f"merged:>={since} merged:<={until}"
           )
 
-          merged_by_you = search_count(merged_query)
+          merged_by_you = 0
+          checked_prs = 0
+          inaccessible_prs = 0
+          total_found = 0
 
-          activity_metrics = [
-              (
-                  "Commits",
-                  contributions["totalCommitContributions"]
-              ),
-              (
-                  "PRs criados",
-                  contributions["totalPullRequestContributions"]
-              ),
-              (
-                  "Reviews enviados",
-                  contributions["totalPullRequestReviewContributions"]
-              ),
-              ("Merges por você", merged_by_you),
-              (
-                  "Issues",
-                  contributions["totalIssueContributions"]
-              ),
-              (
-                  "Repos com commits",
-                  contributions[
-                      "totalRepositoriesWithContributedCommits"
-                  ]
+          # A API de busca limita a 1.000 resultados por consulta.
+          # Verificamos cada PR para identificar merged_by.login.
+          for page in range(1, 11):
+              results = get(
+                  f"{API}/search/issues",
+                  {
+                      "q": merged_query,
+                      "sort": "updated",
+                      "order": "desc",
+                      "per_page": 100,
+                      "page": page
+                  }
               )
-          ]
+
+              items = results.get("items", [])
+              total_found = results["total_count"]
+
+              if not items:
+                  break
+
+              for item in items:
+                  repo_url = item.get("repository_url")
+                  number = item.get("number")
+
+                  if not repo_url or not number:
+                      continue
+
+                  try:
+                      pr = get(f"{repo_url}/pulls/{number}")
+                      checked_prs += 1
+
+                      merger = pr.get("merged_by") or {}
+                      if merger.get("login", "").lower() == login.lower():
+                          merged_by_you += 1
+
+                  except requests.RequestException as error:
+                      inaccessible_prs += 1
+                      print(f"Aviso ao consultar PR: {error}")
+
+              if page * 100 >= min(total_found, 1000):
+                  break
+
+          print(f"PRs mergeados encontrados: {total_found}")
+          print(f"PRs verificados: {checked_prs}")
+          print(f"PRs sem acesso: {inaccessible_prs}")
+          print(f"Merges realizados por você: {merged_by_you}")
 
           draw_card(
               "GitHub Activity",
               "Desenvolvimento e colaboracao | ultimos 12 meses",
-              activity_metrics,
-              f"Atualizado em {now.strftime('%d/%m/%Y')} UTC",
+              [
+                  (
+                      "Commits",
+                      contributions["totalCommitContributions"]
+                  ),
+                  (
+                      "PRs criados",
+                      contributions["totalPullRequestContributions"]
+                  ),
+                  (
+                      "Reviews enviados",
+                      contributions["totalPullRequestReviewContributions"]
+                  ),
+                  ("Merges por você", merged_by_you),
+                  (
+                      "Issues",
+                      contributions["totalIssueContributions"]
+                  ),
+                  (
+                      "Repos com commits",
+                      contributions[
+                          "totalRepositoriesWithContributedCommits"
+                      ]
+                  )
+              ],
               "activity.svg"
           )
 
-          print("Card de atividade gerado.")
-          print(f"Merges encontrados: {merged_by_you}")
+          # --------------------------------------------------
+          # 3. Linguagens dos repositórios com commits do usuário
+          # --------------------------------------------------
 
-          # 3. Lista de repositórios acessíveis ao token.
           repos = []
           page = 1
 
@@ -249,8 +347,6 @@ jobs:
               repos.extend(batch)
               page += 1
 
-          # 4. Linguagens dos repositórios com commits atribuídos
-          # à conta. Reviews sem commits não definem linguagens.
           language_totals = {}
           repos_included = 0
           skipped = 0
@@ -262,7 +358,7 @@ jobs:
                   commits = get(
                       f"{API}/repos/{full_name}/commits",
                       {
-                          "author": USERNAME,
+                          "author": login,
                           "per_page": 1
                       }
                   )
@@ -289,21 +385,15 @@ jobs:
                   status = error.response.status_code
 
                   if status == 409:
-                      print(
-                          f"Sem histórico consultável: {full_name}"
-                      )
+                      print(f"Sem histórico consultável: {full_name}")
                       continue
 
                   skipped += 1
-                  print(
-                      f"Aviso HTTP {status}: {full_name}"
-                  )
+                  print(f"Aviso HTTP {status}: {full_name}")
 
               except requests.RequestException as error:
                   skipped += 1
-                  print(
-                      f"Aviso de conexão em {full_name}: {error}"
-                  )
+                  print(f"Aviso de conexão em {full_name}: {error}")
 
           total_bytes = sum(language_totals.values())
 
@@ -331,21 +421,21 @@ jobs:
               "Most Used Languages",
               "Linguagens dos repositorios com seus commits",
               language_metrics,
-              f"{repos_included} repositorios analisados",
               "top-langs.svg"
           )
 
           print(f"Repositórios acessíveis: {len(repos)}")
           print(f"Repositórios analisados: {repos_included}")
           print(f"Repositórios com outros erros: {skipped}")
-          print("Cards gerados com sucesso.")
+          print("Todos os cards foram gerados.")
+          PY
 
       - name: Commit generated cards
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add profile/activity.svg profile/top-langs.svg profile/stats.svg
+          git add profile/stats.svg profile/activity.svg profile/top-langs.svg
 
           if ! git diff --cached --quiet; then
             git commit -m "chore: update GitHub profile stats"
