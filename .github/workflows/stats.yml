@@ -24,70 +24,60 @@ jobs:
         run: |
           python - <<'PY'
           import os
-          import requests
           import html
+          import requests
           from datetime import datetime, timedelta, timezone
           from pathlib import Path
 
           TOKEN = os.environ["GH_TOKEN"]
           USERNAME = os.environ["GH_USERNAME"]
           API = "https://api.github.com"
+          OUT = Path("profile")
+          OUT.mkdir(exist_ok=True)
+
           HEADERS = {
               "Authorization": f"Bearer {TOKEN}",
               "Accept": "application/vnd.github+json",
               "X-GitHub-Api-Version": "2022-11-28"
           }
 
-          OUT = Path("profile")
-          OUT.mkdir(exist_ok=True)
+          session = requests.Session()
+          session.headers.update(HEADERS)
 
-          def api_get(url, params=None):
-              response = requests.get(
-                  url, headers=HEADERS, params=params, timeout=30
-              )
+          def get(url, params=None):
+              response = session.get(url, params=params, timeout=30)
               response.raise_for_status()
               return response.json()
 
           def graphql(query, variables):
-              response = requests.post(
-                  "https://api.github.com/graphql",
-                  headers=HEADERS,
+              response = session.post(
+                  f"{API}/graphql",
                   json={"query": query, "variables": variables},
                   timeout=30
               )
               response.raise_for_status()
               data = response.json()
-              if "errors" in data:
+
+              if data.get("errors"):
                   raise RuntimeError(data["errors"])
+
               return data["data"]
 
-          def safe_text(value):
+          def search_count(query):
+              data = get(
+                  f"{API}/search/issues",
+                  {"q": query, "per_page": 1}
+              )
+              return data["total_count"]
+
+          def esc(value):
               return html.escape(str(value))
 
-          def card(title, subtitle, metrics, footer, filename):
+          def draw_card(title, subtitle, metrics, footer, filename):
               width, height = 495, 260
-              left, top = 24, 28
               colors = [
                   "#58A6FF", "#3FB950", "#D2A8FF",
                   "#F0883E", "#F778BA", "#79C0FF"
-              ]
-
-              svg = [
-                  f'<svg xmlns="http://www.w3.org/2000/svg" '
-                  f'width="{width}" height="{height}" '
-                  f'viewBox="0 0 {width} {height}">',
-                  '<rect width="100%" height="100%" rx="12" '
-                  'fill="#0D1117" stroke="#30363D"/>',
-                  f'<text x="{left}" y="{top + 4}" fill="#F0F6FC" '
-                  'font-family="Segoe UI,Arial,sans-serif" '
-                  'font-size="17" font-weight="600">'
-                  f'{safe_text(title)}</text>',
-                  f'<text x="{left}" y="{top + 25}" fill="#8B949E" '
-                  'font-family="Segoe UI,Arial,sans-serif" '
-                  'font-size="11">'
-                  f'{safe_text(subtitle)}</text>',
-                  f'<line x1="{left}" y1="72" x2="{width-left}" y2="72" '
-                  'stroke="#30363D"/>'
               ]
 
               positions = [
@@ -96,27 +86,45 @@ jobs:
                   (24, 218), (260, 218)
               ]
 
-              for i, (label, value) in enumerate(metrics[:6]):
-                  x, y = positions[i]
-                  color = colors[i]
+              svg = [
+                  f'<svg xmlns="http://www.w3.org/2000/svg" '
+                  f'width="{width}" height="{height}" '
+                  f'viewBox="0 0 {width} {height}">',
+                  '<rect width="100%" height="100%" rx="12" '
+                  'fill="#0D1117" stroke="#30363D"/>',
+                  f'<text x="24" y="32" fill="#F0F6FC" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="17" font-weight="600">'
+                  f'{esc(title)}</text>',
+                  f'<text x="24" y="53" fill="#8B949E" '
+                  'font-family="Segoe UI,Arial,sans-serif" '
+                  'font-size="11">'
+                  f'{esc(subtitle)}</text>',
+                  '<line x1="24" y1="72" x2="471" y2="72" '
+                  'stroke="#30363D"/>'
+              ]
+
+              for index, (label, value) in enumerate(metrics[:6]):
+                  x, y = positions[index]
+                  color = colors[index]
+
                   svg.extend([
                       f'<circle cx="{x+5}" cy="{y-5}" r="4" '
                       f'fill="{color}"/>',
                       f'<text x="{x+17}" y="{y}" fill="#8B949E" '
                       'font-family="Segoe UI,Arial,sans-serif" '
                       'font-size="11">'
-                      f'{safe_text(label)}</text>',
+                      f'{esc(label)}</text>',
                       f'<text x="{x+17}" y="{y+22}" fill="#F0F6FC" '
                       'font-family="Segoe UI,Arial,sans-serif" '
                       'font-size="19" font-weight="600">'
-                      f'{safe_text(value)}</text>'
+                      f'{esc(value)}</text>'
                   ])
 
               svg.extend([
-                  f'<text x="{left}" y="246" fill="#8B949E" '
+                  f'<text x="24" y="246" fill="#8B949E" '
                   'font-family="Segoe UI,Arial,sans-serif" '
-                  'font-size="10">'
-                  f'{safe_text(footer)}</text>',
+                  'font-size="10">{esc(footer)}</text>',
                   '</svg>'
               ])
 
@@ -124,32 +132,30 @@ jobs:
                   "\n".join(svg), encoding="utf-8"
               )
 
-          # --------------------------------------------------
-          # 1. Atividade dos últimos 12 meses
-          # --------------------------------------------------
-
+          # Período analisado: últimos 12 meses.
           now = datetime.now(timezone.utc)
           start = now - timedelta(days=365)
+          since = start.strftime("%Y-%m-%d")
+          until = now.strftime("%Y-%m-%d")
 
-          query = """
+          # Contribuições: commits, PRs criados, reviews e issues.
+          # read:user permite incluir contribuições privadas na coleção,
+          # conforme as configurações e permissões do GitHub.
+          contribution_query = """
           query($login: String!, $from: DateTime!, $to: DateTime!) {
             user(login: $login) {
-              contributionsCollection(
-                from: $from,
-                to: $to,
-                includePrivateContributions: true
-              ) {
+              contributionsCollection(from: $from, to: $to) {
                 totalCommitContributions
                 totalIssueContributions
                 totalPullRequestContributions
                 totalPullRequestReviewContributions
-                totalRepositoryContributions
+                totalRepositoriesWithContributedCommits
               }
             }
           }
           """
 
-          result = graphql(query, {
+          result = graphql(contribution_query, {
               "login": USERNAME,
               "from": start.isoformat(),
               "to": now.isoformat()
@@ -157,48 +163,40 @@ jobs:
 
           contributions = result["user"]["contributionsCollection"]
 
-          # Busca o total de PRs criados pelo usuário que foram
-          # efetivamente integrados (merged) nos últimos 12 meses.
-          merged_query = (
-              f"is:pr is:merged author:{USERNAME} "
-              f"merged:>={start.date().isoformat()} "
-              f"merged:<={now.date().isoformat()}"
+          # PRs efetivamente integrados por você, incluindo PRs
+          # abertos por colegas, quando o GitHub registra seu usuário
+          # como responsável pelo merge.
+          merged_by_you = search_count(
+              f"is:pr is:merged merged-by:{USERNAME} "
+              f"merged:>={since} merged:<={until}"
           )
 
-          merged_data = api_get(
-              f"{API}/search/issues",
-              {"q": merged_query, "per_page": 1}
-          )
-          merged_prs = merged_data["total_count"]
-
-          activity_metrics = [
+          activity = [
               ("Commits", contributions["totalCommitContributions"]),
               ("PRs criados", contributions["totalPullRequestContributions"]),
-              ("PRs integrados", merged_prs),
-              ("Code reviews", contributions["totalPullRequestReviewContributions"]),
-              ("Issues", contributions["totalIssueContributions"]),
-              ("Repos contribuídos", contributions["totalRepositoryContributions"])
+              ("Reviews enviados", contributions["totalPullRequestReviewContributions"]),
+              ("Merges por você", merged_by_you),
+              ("Issues abertas", contributions["totalIssueContributions"]),
+              ("Repos com commits", contributions["totalRepositoriesWithContributedCommits"])
           ]
 
-          card(
+          draw_card(
               "GitHub Activity",
-              "Contribuicoes nos ultimos 12 meses",
-              activity_metrics,
+              "Desenvolvimento e colaboracao | ultimos 12 meses",
+              activity,
               f"Atualizado em {now.strftime('%d/%m/%Y')} UTC",
               "activity.svg"
           )
 
           print("Card de atividade gerado.")
 
-          # --------------------------------------------------
-          # 2. Linguagens dos repositórios com commits do autor
-          # --------------------------------------------------
-
+          # Linguagens dos repositórios acessíveis nos quais você
+          # possui pelo menos um commit atribuído à sua conta.
           repos = []
           page = 1
 
           while True:
-              batch = api_get(
+              batch = get(
                   f"{API}/user/repos",
                   {
                       "visibility": "all",
@@ -223,18 +221,15 @@ jobs:
               full_name = repo["full_name"]
 
               try:
-                  commits = api_get(
+                  commits = get(
                       f"{API}/repos/{full_name}/commits",
-                      {
-                          "author": USERNAME,
-                          "per_page": 1
-                      }
+                      {"author": USERNAME, "per_page": 1}
                   )
 
                   if not commits:
                       continue
 
-                  languages = api_get(
+                  languages = get(
                       f"{API}/repos/{full_name}/languages"
                   )
 
@@ -248,49 +243,41 @@ jobs:
                           language_totals.get(language, 0) + byte_count
                       )
 
-              except requests.RequestException:
+              except requests.RequestException as error:
                   skipped += 1
+                  print(f"Aviso: falha ao analisar {full_name}: {error}")
                   continue
 
           total_bytes = sum(language_totals.values())
 
           if total_bytes:
-              sorted_languages = sorted(
+              ranked = sorted(
                   language_totals.items(),
                   key=lambda item: item[1],
                   reverse=True
               )[:6]
 
-              lang_metrics = [
-                  (
-                      name,
-                      f"{value / total_bytes * 100:.1f}%"
-                  )
-                  for name, value in sorted_languages
+              language_metrics = [
+                  (name, f"{amount / total_bytes * 100:.1f}%")
+                  for name, amount in ranked
               ]
-
-              # Completa o card caso existam menos de seis linguagens.
-              while len(lang_metrics) < 6:
-                  lang_metrics.append((" ", " "))
-
           else:
-              lang_metrics = [
-                  ("Sem dados", "0%"),
-                  (" ", " "), (" ", " "),
-                  (" ", " "), (" ", " "), (" ", " ")
-              ]
+              language_metrics = []
 
-          card(
+          while len(language_metrics) < 6:
+              language_metrics.append(("Sem dados", "0%"))
+
+          draw_card(
               "Most Used Languages",
               "Linguagens dos repositorios com seus commits",
-              lang_metrics,
+              language_metrics,
               f"{repos_included} repositorios analisados",
               "top-langs.svg"
           )
 
           print(f"Repositórios acessíveis: {len(repos)}")
-          print(f"Repositórios com linguagens analisadas: {repos_included}")
-          print(f"Repositórios ignorados por erro de API: {skipped}")
+          print(f"Repositórios com linguagens: {repos_included}")
+          print(f"Repositórios com erros: {skipped}")
           print("Cards gerados com sucesso.")
           PY
 
