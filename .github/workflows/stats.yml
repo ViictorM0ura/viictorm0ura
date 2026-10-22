@@ -17,6 +17,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Diagnose private repository access
+        env:
+          GH_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== Authenticated GitHub user ==="
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/user |
+            jq '{login, type}'
+
+          echo "=== Private repositories accessible to token ==="
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/user/repos?visibility=private&affiliation=owner,collaborator,organization_member&per_page=100" \
+            > /tmp/repos.json
+
+          jq '{
+            private_repositories_in_response: [.[] | select(.private == true)] | length,
+            tld_teledata_private_repositories: [.[] | select(.private == true and (.owner.login | ascii_downcase) == "tld-teledata")] | length,
+            pagination_note: "The response contains at most 100 repositories"
+          }' /tmp/repos.json
+
+          echo "=== TLD-TeleData organization API ==="
+          status=$(curl -sS \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -o /tmp/org.json \
+            -w "%{http_code}" \
+            https://api.github.com/orgs/TLD-TeleData)
+
+          echo "Organization API HTTP status: $status"
+          jq '{login, message}' /tmp/org.json
+
       - name: Generate stats card
         uses: stats-organization/github-readme-stats-action@v2
         with:
